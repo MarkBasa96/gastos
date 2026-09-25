@@ -370,6 +370,7 @@ export function SettingsScreen({
         </>
       )}
       <T size={13} w="medium" color={t.muted} style={{ textAlign: 'center', marginTop: 12 }}>Gastos 2.0</T>
+      <T size={12} color={t.muted} style={{ textAlign: 'center', marginTop: 2 }}>Made by Joemark Basa</T>
 
       {/* ---- sheets ---- */}
       <CurrencySheet visible={curSheet} onClose={() => setCurSheet(false)} t={t} value={settings.currency} onPick={pickCurrency} />

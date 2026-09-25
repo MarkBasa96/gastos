@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.joemarkbasa.gastos",
+        "sha256_cert_fingerprints": ["D4:60:B4:1D:B1:70:3B:F4:81:20:B4:AC:54:FB:55:D3:C3:97:B3:82:0D:CB:5F:B3:B3:F0:F2:B0:FB:33:12:5D"]
+      }
+    }]
