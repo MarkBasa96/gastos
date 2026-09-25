@@ -10,7 +10,9 @@ A phone-first expense tracker built for how people in the Philippines actually p
 cash, cards, GCash, Maya and digital banks. It works offline, syncs when you're back online,
 and locks with a 4-digit MPIN.
 
-**[Open the live app →](https://gastos-six-phi.vercel.app)**
+**[Open the live app →](https://gastos-six-phi.vercel.app)** · **[Download for Android (APK) →](https://github.com/MarkBasa96/gastos/releases/latest/download/Gastos-2.0.0.apk)**
+
+<sub>iPhone: open the live app in Safari → Share → Add to Home Screen.</sub>
 
 </div>
 
