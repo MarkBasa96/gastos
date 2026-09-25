@@ -75,6 +75,7 @@ The design process came before the code:
 - **Row Level Security** on every table: each account can only read and write its own rows (`supabase/schema.sql`, with tests in `supabase/rls-test.sql`).
 - **Database constraints back the app's validation on every expense row.** For example, a "Paid with" value that looks like a card number is rejected.
 - **MPIN** is hashed with PBKDF2-SHA-256 (100k iterations, random salt) through WebCrypto. Guesses are counted *before* they're checked, the app locks whenever it goes to the background, and 5 wrong tries require an email code. On the web it's an app lock for a phone that's already unlocked: it keeps casual eyes out, but someone with browser developer tools can get past it. It's not a replacement for the phone's own lock.
+- **Bot check on sign-in:** Cloudflare Turnstile, enforced by Supabase Auth on "send me a code", so bots can't burn the email quota. Staying signed in and entering the code are unaffected.
 - **Merge-restore is insert-only**, so an old backup can never overwrite newer data or bring deleted entries back.
 
 ## Run it yourself

@@ -386,9 +386,9 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
   );
 
   // ---------- accounts ----------
-  const sendCode = (create: boolean) => async (email: string) => {
+  const sendCode = (create: boolean) => async (email: string, captchaToken?: string) => {
     if (!supabase) throw new Error('offline');
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: create } });
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: create, captchaToken } });
     if (error) throw error;
   };
 

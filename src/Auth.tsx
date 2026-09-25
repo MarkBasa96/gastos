@@ -3,6 +3,7 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Svg, { Defs, Pattern, Rect, Text as SvgText } from 'react-native-svg';
 import { maskEmail } from './pin';
+import { Turnstile, TurnstileHandle, turnstileEnabled } from './Turnstile';
 import { Theme, font } from './theme';
 import { Button, Field, IconButton, Label, T } from './ui';
 
@@ -75,7 +76,7 @@ export function SignIn({
   fixedEmail?: string; // sign-in again / forgot MPIN: the email can't be changed (Kenshin 1.7)
   title?: string;
   intro?: string;
-  onSend: (email: string) => Promise<void>;
+  onSend: (email: string, captchaToken?: string) => Promise<void>;
   onVerify: (email: string, code: string) => Promise<void>;
   onBack?: () => void;
   backLabel?: string;
@@ -87,6 +88,9 @@ export function SignIn({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
+  const [captcha, setCaptcha] = useState<string | null>(null);
+  const check = useRef<TurnstileHandle>(null);
+  const needsCheck = turnstileEnabled && !captcha;
 
   useEffect(() => {
     if (wait <= 0) return;
@@ -98,16 +102,19 @@ export function SignIn({
 
   async function send() {
     if (!validEmail) return setError('Type your email, like name@gmail.com.');
+    if (needsCheck) return setError('One moment: finishing the security check below.');
     setBusy(true);
     setError(null);
     try {
-      await onSend(email.trim().toLowerCase());
+      await onSend(email.trim().toLowerCase(), captcha ?? undefined);
       setStep('code');
       setWait(45);
     } catch (e) {
-      setError(friendly(e, 'Could not send the code. Check your internet and try again.'));
+      const msg = e instanceof Error ? e.message : '';
+      setError(/captcha/i.test(msg) ? 'The security check didn’t go through. Please try again.' : friendly(e, 'Could not send the code. Check your internet and try again.'));
     } finally {
       setBusy(false);
+      check.current?.reset(); // tokens work once; get a fresh one for "Send a new code"
     }
   }
 
@@ -166,7 +173,7 @@ export function SignIn({
             />
           )}
           {error && <T size={14} color={t.danger} style={{ marginTop: 8 }}>{error}</T>}
-          <Button label="Send me a code" onPress={send} t={t} loading={busy} style={{ marginTop: 18 }} />
+          <Button label="Send me a code" onPress={send} t={t} loading={busy} disabled={needsCheck} style={{ marginTop: 18 }} />
           {!fixedEmail && (
             <T size={13} w="medium" color={t.muted} style={{ textAlign: 'center', marginTop: 14 }}>
               New here? The same code makes your account.
@@ -227,6 +234,7 @@ export function SignIn({
           </View>
         </>
       )}
+      <Turnstile ref={check} onToken={setCaptcha} dark={t.dark} />
       {extra}
     </Page>
   );
