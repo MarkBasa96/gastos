@@ -139,7 +139,7 @@ export function SentCelebration({ t, onDone }: { t: Theme; onDone: () => void })
 
 // ---------- "Saved ✓": a small pill after any Settings change (Joe v3 test round) ----------
 
-export function SavedPill({ t, show, inline, label = 'Saved' }: { t: Theme; show: number; inline?: boolean; label?: string }) {
+export function SavedPill({ t, show, inline, label = 'Saved', check = true }: { t: Theme; show: number; inline?: boolean; label?: string; check?: boolean }) {
   const v = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (!show) return;
@@ -161,7 +161,7 @@ export function SavedPill({ t, show, inline, label = 'Saved' }: { t: Theme; show
           { opacity: v, transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.85, 1] }) }, { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] },
         ]}
       >
-        <Check size={16} color={t.accentText} strokeWidth={2.6} />
+        {check && <Check size={16} color={t.accentText} strokeWidth={2.6} />}
         <T size={15} w="semibold" color={t.accentText}>{label}</T>
       </Animated.View>
     </View>

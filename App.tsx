@@ -23,6 +23,8 @@ import {
   writeVerifier,
 } from './src/accountPin';
 import { Lock, PinTry, SetPin, SignIn, VerifyPin, Welcome } from './src/Auth';
+import { startBackNav, useBackHandler } from './src/backNav';
+import { SavedPill } from './src/celebrate';
 import {
   Dirty,
   clearSyncState,
@@ -837,6 +839,18 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
     };
   }, [session?.user.id, online, lastUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ---------- the phone's Back button (Joe, after v3 went live) ----------
+  const [exitHint, setExitHint] = useState(0);
+  useEffect(() => startBackNav(() => setExitHint((n) => n + 1)), []);
+  // History / Settings -> Log. (Sheets and pop-ups register their own, and win because they're newer.)
+  useBackHandler(tab !== 'log', () => setTab('log'));
+  // Sign-in, Forgot MPIN, and the MPIN screens that can be cancelled: Back = Cancel.
+  const cancellable =
+    screen === 'signin' || screen === 'forgot' || screen === 'pinoff' || screen === 'pinchange' || (screen === 'setpin' && pinMode.current !== 'reset');
+  useBackHandler(cancellable, () => setScreen(null));
+  // Setting a new MPIN after a forgotten one has no way out (Kenshin H2): Back does nothing there.
+  useBackHandler(screen === 'setpin' && pinMode.current === 'reset', () => {});
+
   // ---------- derived ----------
   const visible = useMemo(() => (expenses ?? []).filter((e) => !e.deleted), [expenses]);
   const loadingCloud = !!session && !syncedThisSession && visible.length === 0 && online && !offline;
@@ -1107,6 +1121,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         <Button label="Cancel" kind="text" onPress={() => setSwitchAsk(false)} t={t} />
       </Sheet>
       {reveal && <RevealVeil key={reveal.key} x={reveal.x} y={reveal.y} end={reveal.end} color={reveal.color} onDone={() => setReveal(null)} />}
+      <SavedPill t={t} show={exitHint} label="Press back again to exit" check={false} />
       <StatusBar style={t.dark || (session && pinSet && !unlocked) ? 'light' : 'dark'} />
     </SafeAreaView>
   );

@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Animated, Easing, LayoutChangeEvent, Modal, Platform, Pressable, StyleProp, StyleSheet, TextStyle, View, ViewStyle } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import { useBackHandler } from './backNav';
 import { formatMoney } from './data';
 import { prefersReducedMotion } from './fx';
 import { ChevronDown, type LucideIcon } from './lucide';
@@ -106,6 +107,7 @@ export function ConfirmDialog({
   const [busy, setBusy] = useState(false);
   const used = useRef(false);
   const cancelRef = useRef<View>(null);
+  useBackHandler(visible, onCancel); // phone Back = Cancel, never the action
   useEffect(() => {
     if (!visible) return;
     setBusy(false);

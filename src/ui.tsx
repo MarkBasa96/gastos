@@ -19,6 +19,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
+import { useBackHandler } from './backNav';
 import { buzz, prefersReducedMotion } from './fx';
 import { Theme, cardRadius, font, radius } from './theme';
 
@@ -376,6 +377,7 @@ export function Sheet({
 }) {
   const slide = useRef(new Animated.Value(0)).current;
   const titleRef = useRef<View>(null);
+  useBackHandler(visible, onClose); // phone Back closes the sheet
   useEffect(() => {
     if (visible) {
       slide.setValue(0);
