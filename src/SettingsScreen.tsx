@@ -20,8 +20,8 @@ import {
   WifiOff,
   X,
 } from './lucide';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { createElement, useEffect, useMemo, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { exportBackup, pickBackupFile } from './backup';
 import {
   CATEGORIES,
@@ -192,6 +192,15 @@ export function SettingsScreen({
     try {
       const text = await pickBackupFile();
       if (text === null) return;
+      openRestore(text);
+    } catch (err) {
+      setMsg({ text: err instanceof Error ? err.message : 'Could not read that file.', bad: true });
+    }
+  }
+
+  function openRestore(text: string) {
+    setMsg(null);
+    try {
       const parsed = fromBackup(text);
       setRestore({ rows: parsed.expenses, settings: parsed.settings, owner: parsed.owner, name: 'Backup file' });
       setMode('merge');
@@ -378,10 +387,33 @@ export function SettingsScreen({
           <T size={16} color={t.text} style={{ flex: 1 }}>Back up to a file</T>
           <ChevronRight size={18} color={t.muted} />
         </Row>
-        <Row t={t} onPress={pickRestore} label="Restore from a file">
-          <T size={16} color={t.text} style={{ flex: 1 }}>Restore from a file</T>
-          <ChevronRight size={18} color={t.muted} />
-        </Row>
+        {Platform.OS === 'web' ? (
+          <View>
+            <Row t={t} label="Restore from a file">
+              <T size={16} color={t.text} style={{ flex: 1 }}>Restore from a file</T>
+              <ChevronRight size={18} color={t.muted} />
+            </Row>
+            {createElement('input', {
+              type: 'file',
+              'aria-label': 'Restore from a file',
+              title: 'Restore from a file',
+              onClick: (e: any) => {
+                e.currentTarget.value = ''; // the same file twice in a row still fires onChange
+              },
+              onChange: (e: any) => {
+                const file: File | undefined = e.currentTarget.files?.[0];
+                if (!file) return;
+                file.text().then(openRestore, () => setMsg({ text: 'Could not read that file.', bad: true }));
+              },
+              style: { position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', fontSize: 0 },
+            })}
+          </View>
+        ) : (
+          <Row t={t} onPress={pickRestore} label="Restore from a file">
+            <T size={16} color={t.text} style={{ flex: 1 }}>Restore from a file</T>
+            <ChevronRight size={18} color={t.muted} />
+          </Row>
+        )}
       </Card>
       {msg && <T size={14} color={msg.bad ? t.danger : t.text} style={{ marginTop: 10 }} accessibilityLiveRegion="polite">{msg.text}</T>}
 
