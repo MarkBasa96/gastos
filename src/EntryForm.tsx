@@ -1,4 +1,4 @@
-import { Calendar, Wallet } from './lucide';
+import { Calendar, Lock, Plus, StickyNote, Wallet } from './lucide';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import {
@@ -16,9 +16,10 @@ import {
   parseLocalDate,
 } from './data';
 import { categoryIcon } from './icons';
+import { Chip } from './motion';
 import { DateSheet, PaidWithSheet } from './sheets';
 import { Theme, radius } from './theme';
-import { Field, Label, PickerField, Segmented, T } from './ui';
+import { Field, Label, Segmented, T } from './ui';
 
 export type Draft = {
   kind: Kind;
@@ -81,14 +82,16 @@ export const EntryForm = forwardRef<
     customCategories: string[];
     labels: PayLabel[];
     onAddLabel: (l: PayLabel) => void;
-    autoFocus?: boolean;
     onSubmit?: () => void;
+    /** Editing: an expense stays an expense and income stays income (Joe, v3). */
+    lockKind?: boolean;
   }
->(function EntryForm({ t, draft, onChange, currency, customCategories, labels, onAddLabel, autoFocus, onSubmit }, ref) {
+>(function EntryForm({ t, draft, onChange, currency, customCategories, labels, onAddLabel, onSubmit, lockKind }, ref) {
   const [tried, setTried] = useState(false);
   const [gridW, setGridW] = useState(0);
   const [paySheet, setPaySheet] = useState(false);
   const [dateSheet, setDateSheet] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
   const amountRef = useRef<TextInput>(null);
   const set = (p: Partial<Draft>) => onChange({ ...draft, ...p });
 
@@ -109,6 +112,7 @@ export const EntryForm = forwardRef<
       setTried(true);
       if (cents === null || !draft.category) return null;
       setTried(false);
+      setNoteOpen(false); // the note shows as a chip again, whatever the browser did with focus
       return { cents, category: draft.category };
     },
     focusAmount: () => amountRef.current?.focus(),
@@ -120,17 +124,38 @@ export const EntryForm = forwardRef<
 
   return (
     <View>
-      <Segmented
-        t={t}
-        small
-        value={draft.kind}
-        onChange={(k) => set({ kind: k, category: null })}
-        options={[
-          { value: 'expense', label: 'Expense' },
-          { value: 'income', label: 'Income' },
-        ]}
-        style={{ width: 200 }}
-      />
+      {lockKind ? (
+        <View>
+          <View style={[styles.locked, { borderColor: t.border, backgroundColor: t.surface }]} accessibilityLabel={`${draft.kind === 'income' ? 'Income' : 'Expense'}. Can't be changed while editing.`}>
+            {(['expense', 'income'] as const).map((k) => {
+              const on = draft.kind === k;
+              return (
+                <View key={k} style={[styles.lockedItem, on && { backgroundColor: t.accentSoft }, !on && { opacity: 0.45 }]}>
+                  {!on && <Lock size={13} color={t.muted} strokeWidth={2} />}
+                  <T size={14} w={on ? 'semibold' : 'medium'} color={on ? t.text : t.muted}>{k === 'expense' ? 'Expense' : 'Income'}</T>
+                </View>
+              );
+            })}
+          </View>
+          <T size={13} color={t.muted} style={{ marginTop: 8, lineHeight: 18 }}>
+            {draft.kind === 'income'
+              ? 'An income stays an income. To make it an expense, delete it and log it again.'
+              : 'An expense stays an expense. To make it income, delete it and log it again.'}
+          </T>
+        </View>
+      ) : (
+        <Segmented
+          t={t}
+          small
+          value={draft.kind}
+          onChange={(k) => set({ kind: k, category: null })}
+          options={[
+            { value: 'expense', label: 'Expense' },
+            { value: 'income', label: 'Income' },
+          ]}
+          style={{ width: 200 }}
+        />
+      )}
 
       <Label t={t} style={{ marginTop: 12 }}>Amount</Label>
       <Field
@@ -142,7 +167,6 @@ export const EntryForm = forwardRef<
         placeholder="0.00"
         keyboardType="decimal-pad"
         inputMode="decimal"
-        autoFocus={autoFocus && Platform.OS === 'web'}
         accessibilityLabel="Amount"
         error={!!amountError}
         left={<T size={26} w="semibold" color={t.muted}>{currencySymbol(currency)}</T>}
@@ -159,7 +183,7 @@ export const EntryForm = forwardRef<
               key={c}
               onPress={() => {
                 set({ category: c });
-                Keyboard.dismiss(); // keeps the docked Save button in reach
+                Keyboard.dismiss(); // keeps Save in reach, right under the chips
               }}
               accessibilityRole="radio"
               accessibilityState={{ checked: on }}
@@ -184,30 +208,36 @@ export const EntryForm = forwardRef<
       </View>
       {categoryError && <T size={14} color={t.danger} style={{ marginTop: 6 }}>{categoryError}</T>}
 
-      <View style={styles.two}>
-        <View style={{ flex: 1 }}>
-          <Label t={t} style={{ marginTop: 12 }}>{draft.kind === 'income' ? 'Received in' : 'Paid with'}</Label>
-          <PickerField t={t} icon={Wallet} label="Paid with" value={draft.paidWith || 'Cash'} onPress={() => setPaySheet(true)} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Label t={t} style={{ marginTop: 12 }}>When</Label>
-          <PickerField t={t} icon={Calendar} label="When" value={whenLabel(draft.date)} onPress={() => setDateSheet(true)} />
-        </View>
+      {/* Layout C (Joe v3): wallet, date and note as chips, so Save sits right under What for? */}
+      <View style={styles.chips}>
+        <Chip t={t} icon={Wallet} label={draft.paidWith || 'Cash'} chevron onPress={() => setPaySheet(true)}
+          a11y={`${draft.kind === 'income' ? 'Received in' : 'Paid with'}: ${draft.paidWith || 'Cash'}`} />
+        <Chip t={t} icon={Calendar} label={whenLabel(draft.date)} chevron onPress={() => setDateSheet(true)} a11y={`When: ${whenLabel(draft.date)}`} />
+        {draft.note.trim() && !noteOpen ? (
+          <Chip t={t} icon={StickyNote} label={draft.note.trim()} grow onPress={() => setNoteOpen(true)} a11y={`Note: ${draft.note.trim()}. Tap to change.`} />
+        ) : !noteOpen ? (
+          <Chip t={t} icon={Plus} label="Note" add onPress={() => setNoteOpen(true)} a11y="Add a note" />
+        ) : null}
       </View>
-
-      <Label t={t} style={{ marginTop: 12 }}>
-        Note <T size={14} w="medium" color={t.muted}>(optional)</T>
-      </Label>
-      <Field
-        t={t}
-        value={draft.note}
-        onChangeText={(v) => set({ note: v })}
-        placeholder="e.g. Jollibee lunch"
-        maxLength={80}
-        returnKeyType="done"
-        onSubmitEditing={onSubmit}
-        accessibilityLabel="Note"
-      />
+      {noteOpen && (
+        <View style={{ marginTop: 10 }}>
+          <Field
+            t={t}
+            value={draft.note}
+            onChangeText={(v) => set({ note: v })}
+            placeholder="e.g. Jollibee lunch"
+            maxLength={80}
+            autoFocus
+            returnKeyType="done"
+            onSubmitEditing={() => {
+              setNoteOpen(false);
+              onSubmit?.();
+            }}
+            onBlur={() => setNoteOpen(false)}
+            accessibilityLabel="Note"
+          />
+        </View>
+      )}
 
       <PaidWithSheet
         visible={paySheet}
@@ -247,5 +277,7 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingHorizontal: 2,
   },
-  two: { flexDirection: 'row', gap: 10 },
+  chips: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  locked: { flexDirection: 'row', borderWidth: 1, borderRadius: radius, padding: 3, gap: 3, width: 220 },
+  lockedItem: { flex: 1, minHeight: 34, borderRadius: radius - 3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
 });

@@ -6,6 +6,7 @@ import {
   CURRENCIES,
   MONTHS,
   PayGroup,
+  SHORT_MONTHS,
   PayLabel,
   Rates,
   currencySymbol,
@@ -224,6 +225,144 @@ export function DateSheet({
         })}
       </View>
       <Button label="Done" onPress={onClose} t={t} style={{ marginTop: 14 }} />
+    </Sheet>
+  );
+}
+
+// ---------- Pick dates: a start-to-end range for History (Joe v3) ----------
+
+export type DateRange = { from: string; to: string }; // inclusive, YYYY-MM-DD
+
+export function rangeLabel(r: DateRange): string {
+  const a = parseLocalDate(r.from);
+  const b = parseLocalDate(r.to);
+  const yr = a.getFullYear() !== new Date().getFullYear() || b.getFullYear() !== a.getFullYear();
+  const fa = `${SHORT_MONTHS[a.getMonth()]} ${a.getDate()}${yr ? `, ${a.getFullYear()}` : ''}`;
+  if (r.from === r.to) return fa;
+  const fb = a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear() && !yr
+    ? String(b.getDate())
+    : `${SHORT_MONTHS[b.getMonth()]} ${b.getDate()}${yr ? `, ${b.getFullYear()}` : ''}`;
+  return `${fa} to ${fb}`;
+}
+
+export function RangeSheet({
+  visible,
+  onClose,
+  t,
+  value,
+  onPick,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  t: Theme;
+  value: DateRange | null;
+  onPick: (r: DateRange) => void;
+}) {
+  const today = localDate();
+  const [start, setStart] = useState<string | null>(value?.from ?? null);
+  const [end, setEnd] = useState<string | null>(value?.to ?? null);
+  const [month, setMonth] = useState(() => {
+    const d = parseLocalDate(value?.to ?? today);
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const days = useMemo(() => {
+    const first = new Date(month.getFullYear(), month.getMonth(), 1).getDay();
+    const count = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+    return [...Array(first).fill(null), ...Array.from({ length: count }, (_, i) => i + 1)];
+  }, [month]);
+  const atThisMonth = month.getFullYear() === new Date().getFullYear() && month.getMonth() === new Date().getMonth();
+
+  const now = new Date();
+  const quick: { label: string; r: DateRange }[] = [
+    { label: 'Last 7 days', r: { from: localDate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6)), to: today } },
+    {
+      label: 'Last month',
+      r: { from: localDate(new Date(now.getFullYear(), now.getMonth() - 1, 1)), to: localDate(new Date(now.getFullYear(), now.getMonth(), 0)) },
+    },
+    { label: 'This year', r: { from: `${now.getFullYear()}-01-01`, to: today } },
+  ];
+
+  // Tap a start day, then an end day. Tapping before the start begins again from there.
+  function tap(iso: string) {
+    if (!start || end || iso < start) {
+      setStart(iso);
+      setEnd(null);
+    } else {
+      setEnd(iso);
+    }
+  }
+  const from = start;
+  const to = end ?? start;
+  const count = from && to ? Math.round((parseLocalDate(to).getTime() - parseLocalDate(from).getTime()) / 86_400_000) + 1 : 0;
+
+  return (
+    <Sheet visible={visible} onClose={onClose} t={t} title="Pick dates">
+      <View style={styles.quick}>
+        {quick.map((q) => (
+          <Pressable
+            key={q.label}
+            onPress={() => onPick(q.r)}
+            accessibilityRole="button"
+            style={(s: any) => [styles.chip, { borderColor: t.border, backgroundColor: s.pressed ? t.accentSoft : t.surface, transform: [{ scale: s.pressed ? 0.95 : 1 }] }]}
+          >
+            <T size={15} w="medium" color={t.text}>{q.label}</T>
+          </Pressable>
+        ))}
+      </View>
+      <View style={styles.monthRow}>
+        <IconButton boxed icon={ChevronLeft} t={t} label="Previous month" onPress={() => setMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} />
+        <T size={16} w="semibold" color={t.text}>
+          {MONTHS[month.getMonth()]} {month.getFullYear()}
+        </T>
+        <IconButton boxed icon={ChevronRight} t={t} label="Next month" disabled={atThisMonth} onPress={() => setMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} />
+      </View>
+      <View style={styles.cal}>
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+          <View key={`h${i}`} style={styles.calCell}>
+            <T size={12} w="semibold" color={t.muted}>{d}</T>
+          </View>
+        ))}
+        {days.map((d, i) => {
+          if (d === null) return <View key={`e${i}`} style={styles.calCell} />;
+          const iso = localDate(new Date(month.getFullYear(), month.getMonth(), d));
+          const future = iso > today;
+          const isA = iso === from;
+          const isB = iso === to;
+          const inside = !!from && !!to && iso > from && iso < to;
+          const ends = isA || isB;
+          return (
+            <Pressable
+              key={iso}
+              disabled={future}
+              onPress={() => tap(iso)}
+              accessibilityRole="button"
+              accessibilityLabel={`${MONTHS[month.getMonth()]} ${d}`}
+              accessibilityState={{ selected: ends || inside, disabled: future }}
+              style={[
+                styles.calCell,
+                inside && { backgroundColor: t.accentSoft },
+                ends && { backgroundColor: t.accent },
+                isA && { borderTopLeftRadius: 10, borderBottomLeftRadius: 10 },
+                isB && { borderTopRightRadius: 10, borderBottomRightRadius: 10 },
+              ]}
+            >
+              <T size={15} w={ends ? 'bold' : 'medium'} color={ends ? t.accentText : future ? t.border : t.text} num>
+                {d}
+              </T>
+            </Pressable>
+          );
+        })}
+      </View>
+      <T size={13} color={t.muted} style={{ textAlign: 'center', marginTop: 10 }} num>
+        {from && to ? `${rangeLabel({ from, to })} · ${count} ${count === 1 ? 'day' : 'days'}. ` : ''}Tap a start day, then an end day.
+      </T>
+      <Button
+        label={from && to ? `Show ${rangeLabel({ from, to })}` : 'Pick a start day'}
+        disabled={!from}
+        onPress={() => from && to && onPick({ from, to })}
+        t={t}
+        style={{ marginTop: 14 }}
+      />
     </Sheet>
   );
 }

@@ -26,6 +26,7 @@ export type Settings = {
   appearance: Appearance;
   categories: string[]; // her own, added after the defaults
   paymentLabels: PayLabel[];
+  sounds: boolean; // this phone only, like appearance
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,6 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
     { n: 'GoTyme', g: 'ewallet' },
     { n: 'SeaBank', g: 'ewallet' },
   ],
+  sounds: true,
 };
 
 // Erina v2 §1: one clean word each, 8 total (Miller's range), "Other" stays.
@@ -95,6 +97,7 @@ export function cleanSettings(s: any): Settings {
     appearance: s?.appearance === 'light' || s?.appearance === 'dark' ? s.appearance : 'system',
     categories: cleanCategories(s?.categories),
     paymentLabels: Array.isArray(s?.paymentLabels) ? cleanLabels(s.paymentLabels) : DEFAULT_SETTINGS.paymentLabels,
+    sounds: s?.sounds !== false,
   };
 }
 

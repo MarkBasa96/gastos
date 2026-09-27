@@ -5,7 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Lock, SetPin, SignIn, Welcome } from './src/Auth';
+import { Lock, SetPin, SignIn, VerifyPin, Welcome } from './src/Auth';
 import {
   Dirty,
   clearSyncState,
@@ -14,7 +14,9 @@ import {
   pull,
   push,
   pushNewOnly,
+  renamePaidWith,
   saveDirty,
+  sendFeedback,
   saveLastUser,
   setSettingsDirty,
   supabase,
@@ -37,6 +39,7 @@ import {
   saveSettings,
 } from './src/data';
 import { EditSheet } from './src/ExpenseRow';
+import { prefersReducedMotion, setSoundsOn } from './src/fx';
 import { HistoryScreen } from './src/HistoryScreen';
 import { LogScreen } from './src/LogScreen';
 import { MAX_TRIES, PinRecord, clearPin, loadPin, maskEmail, pinSupported, setPin, tryPin, weakPin } from './src/pin';
@@ -50,7 +53,11 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'history', label: 'History' },
   { key: 'settings', label: 'Settings' },
 ];
-type Screen = null | 'signin' | 'forgot' | 'setpin';
+type Screen = null | 'signin' | 'forgot' | 'setpin' | 'pinoff' | 'pinchange';
+
+const APP_VERSION = '3.0.0';
+// Joe v3: no lock when switching apps; only a fresh open, or after this long away (Kenshin L4).
+const IDLE_LOCK_MS = 30 * 60_000;
 
 const ONBOARDED_KEY = 'gastos.v1.onboarded';
 const LAST_EMAIL_KEY = 'gastos.v1.lastEmail';
@@ -59,7 +66,10 @@ const LAST_EMAIL_KEY = 'gastos.v1.lastEmail';
 // on them draws a box around the whole screen. Our buttons and fields draw their own focus rings.
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   const css = document.createElement('style');
-  css.textContent = '[tabindex="-1"]:focus{outline:none}';
+  css.textContent =
+    '[tabindex="-1"]:focus{outline:none}' +
+    // Appearance circle (Joe v3): the new look grows out of the tapped icon. No DOM-snapshot library (Kenshin v3 Part 5).
+    '::view-transition-old(root),::view-transition-new(root){animation:none;mix-blend-mode:normal}';
   document.head.appendChild(css);
 }
 
@@ -127,9 +137,8 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
   const syncingRef = useRef(false);
   const again = useRef(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // One-shot pass for our own file picker / share sheet: expires after 60 s, used up by the first
-  // background event (Kenshin M-B). A plain flag stayed on when no background event came.
-  const skipUntil = useRef(0);
+  // When the app last went to the background. "Unlocked" itself lives only in memory (Kenshin v3 M6).
+  const hiddenAt = useRef<number | null>(null);
   const lastUserRef = useRef<string | null>(null);
 
   // ---------- load ----------
@@ -162,6 +171,8 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
       setRatesState(r);
     })().catch(() => setLoadError(true));
   }, [onAppearance]);
+
+  useEffect(() => setSoundsOn(settings.sounds), [settings.sounds]);
 
   // Every change is written straight to the phone, so nothing is lost if the app closes.
   const commit = useCallback((next: Expense[]) => {
@@ -277,19 +288,28 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
     if (session && expenses !== null) syncNow();
   }, [session?.user.id, expenses === null]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Lock on the way OUT (Kenshin M1): the first frame back is the lock screen. Skip once for our own
-  // file picker / share sheet. Sync when the app comes back and when the network returns.
+  // v3 (Joe): switching apps no longer locks. A fresh open always asks (unlocked lives only in memory),
+  // and so does coming back after 30 minutes away (Kenshin v3 L4). Sync when the app comes back.
   useEffect(() => {
-    const sub = AppState.addEventListener('change', (st) => {
-      if (st === 'active') {
-        syncNow();
-      } else if (Date.now() < skipUntil.current) {
-        skipUntil.current = 0; // used up
-      } else {
+    const back = () => {
+      const away = hiddenAt.current;
+      hiddenAt.current = null;
+      if (away !== null && Date.now() - away > IDLE_LOCK_MS) {
         setUnlocked(false);
-        setScreen((sc) => (sc === 'setpin' ? null : sc)); // Kenshin M-A: never leave Change MPIN open
+        // Kenshin M-A: never leave Change MPIN (or its check) open behind the lock.
+        setScreen((sc) => (sc === 'setpin' || sc === 'pinoff' || sc === 'pinchange' ? null : sc));
       }
+      syncNow();
+    };
+    const sub = AppState.addEventListener('change', (st) => {
+      if (st === 'active') back();
+      else if (hiddenAt.current === null) hiddenAt.current = Date.now();
     });
+    // bfcache: a page restored from back/forward memory counts as coming back (Kenshin v3 M6).
+    const shown = (e: any) => {
+      if (e?.persisted) back();
+    };
+    if (Platform.OS === 'web') window.addEventListener('pageshow', shown);
     const on = () => {
       setOnline(true);
       syncNow();
@@ -302,6 +322,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
     return () => {
       sub.remove();
       if (Platform.OS === 'web') {
+        window.removeEventListener('pageshow', shown);
         window.removeEventListener('online', on);
         window.removeEventListener('offline', off);
       }
@@ -337,6 +358,8 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
 
   const add = useCallback(
     (e: Expense) => {
+      // The id is made when the pop-up opens, so a second tap can't add a twin (Kenshin v3 L10).
+      if (expensesRef.current.some((x) => x.id === e.id)) return;
       const rev = Date.now();
       commit([...expensesRef.current, { ...e, rev }]);
       markChanged([e.id], rev);
@@ -383,6 +406,43 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
   const addLabel = useCallback(
     (l: PayLabel) => setSettings({ ...settingsRef.current, paymentLabels: cleanLabels([...settingsRef.current.paymentLabels, l]) }),
     [setSettings],
+  );
+
+  /** The new look grows as a circle out of the tapped icon (Joe v3). Instant under reduced motion. */
+  const changeAppearance = useCallback(
+    (a: Settings['appearance'], at?: { x: number; y: number }) => {
+      const apply = () => setSettings({ ...settingsRef.current, appearance: a });
+      const doc: any = Platform.OS === 'web' && typeof document !== 'undefined' ? document : null;
+      if (!doc?.startViewTransition || prefersReducedMotion() || !at) {
+        apply();
+        return;
+      }
+      const x = at.x;
+      const y = at.y;
+      const end = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+      // react-dom ships with the web build (react-native-web renders through it); no new package needed.
+      const { flushSync } = require('react-dom') as { flushSync: (fn: () => void) => void };
+      const vt = doc.startViewTransition(() => flushSync(apply));
+      vt.ready
+        .then(() =>
+          doc.documentElement.animate(
+            { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${end}px at ${x}px ${y}px)`] },
+            { duration: 600, easing: 'cubic-bezier(.4,0,.2,1)', pseudoElement: '::view-transition-new(root)' },
+          ),
+        )
+        .catch(() => {});
+    },
+    [setSettings],
+  );
+
+  /** Wallet rename: server first (one column), then this phone's copies without marking them to upload (Kenshin M11). */
+  const renameLabel = useCallback(
+    async (from: string, to: string) => {
+      if (sessionRef.current) await renamePaidWith(from, to);
+      commit(expensesRef.current.map((e) => (e.paidWith === from ? { ...e, paidWith: to } : e)));
+      if (sessionRef.current) syncSoon();
+    },
+    [commit, syncSoon],
   );
 
   // ---------- accounts ----------
@@ -472,6 +532,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
 
   // ---------- derived ----------
   const visible = useMemo(() => (expenses ?? []).filter((e) => !e.deleted), [expenses]);
+  const loadingCloud = !!session && !syncedThisSession && visible.length === 0 && online && !offline;
   const syncState: SyncState = !session
     ? 'local'
     : syncing
@@ -497,11 +558,20 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
       </View>
     );
   } else if (!fonts || expenses === null || !sessionReady) {
-    body = (
-      <View style={styles.center}>
-        <PigLoader t={t} label="Opening Gastos…" />
-      </View>
-    );
+    if (expenses !== null && lastUser && pin === 'none') {
+      // Signed in with no MPIN: show the Log screen's shape while the session wakes up.
+      showTabs = true;
+      body = (
+        <LogScreen t={t} expenses={[]} settings={settings} rates={rates} sync="saving" waiting={0} loading
+          onSyncPress={() => {}} onAdd={() => {}} onUndo={() => {}} onEdit={() => {}} onAddLabel={() => {}} />
+      );
+    } else {
+      body = (
+        <View style={styles.center}>
+          <PigLoader t={t} label="Opening Gastos…" />
+        </View>
+      );
+    }
   } else if (screen === 'signin') {
     body = (
       <SignIn
@@ -571,6 +641,38 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         />
       );
     }
+  } else if ((screen === 'pinoff' || screen === 'pinchange') && session && pin !== 'none' && pin !== 'corrupt') {
+    // Current MPIN first, before turning it off or changing it (Joe v3). Wrong tries count toward the 5.
+    const off = screen === 'pinoff';
+    body = (
+      <VerifyPin
+        key={screen}
+        title={off ? 'Turn off MPIN' : 'Change MPIN'}
+        intro={off ? 'Enter your current MPIN first. This turns it off on all your phones.' : 'Enter your current MPIN first.'}
+        triesLeft={MAX_TRIES - pin.fails}
+        onTry={async (p) => {
+          const r = await onPinResult(p);
+          if (r === 'ok') {
+            if (off) {
+              await clearPin();
+              setPinRecord('none');
+              setScreen(null);
+            } else {
+              setScreen('setpin');
+            }
+          } else if (r === 'locked') {
+            setUnlocked(false);
+            setScreen(null);
+          }
+          return r;
+        }}
+        onCancel={() => setScreen(null)}
+        onForgot={() => {
+          setUnlocked(false);
+          setScreen('forgot');
+        }}
+      />
+    );
   } else if (screen === 'setpin' && session) {
     body = (
       <SetPin
@@ -608,6 +710,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
           rates={rates}
           sync={syncState}
           waiting={pending}
+          loading={loadingCloud}
           onSyncPress={() => (session ? syncNow() : setScreen('signin'))}
           onAdd={add}
           onUndo={remove}
@@ -616,7 +719,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         />
       );
     } else if (tab === 'history') {
-      body = <HistoryScreen t={t} expenses={visible} currency={settings.currency} rates={rates} onEdit={setEditing} onLogFirst={() => setTab('log')} />;
+      body = <HistoryScreen t={t} expenses={visible} currency={settings.currency} rates={rates} loading={loadingCloud} onEdit={setEditing} onLogFirst={() => setTab('log')} />;
     } else {
       body = (
         <SettingsScreen
@@ -643,20 +746,14 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
           }}
           pinOn={pinSet}
           pinSupported={pinSupported()}
-          onSetupPin={() => setScreen('setpin')}
-          onTurnOffPin={async () => {
-            await clearPin();
-            setPinRecord('none');
-          }}
+          onSetupPin={() => setScreen(pinSet ? 'pinchange' : 'setpin')}
+          onTurnOffPin={() => setScreen('pinoff')}
+          onAppearance={changeAppearance}
+          onRenameLabel={renameLabel}
+          onSendFeedback={(kind, text) => sendFeedback(kind, text, APP_VERSION)}
           onSignIn={() => setScreen('signin')}
           onSignOut={() => wipe(false)}
           onSyncNow={syncNow}
-          skipLockOnce={() => {
-            skipUntil.current = Date.now() + 60_000;
-          }}
-          endSkip={() => {
-            skipUntil.current = 0;
-          }}
           onMerge={(rows, asCopies) => {
             const now = Date.now();
             const fresh = rows.map((e) => ({ ...e, id: asCopies ? newId() : e.id, deleted: false, rev: now }));
@@ -745,7 +842,7 @@ function Nav({ t, tab, onTab }: { t: Theme; tab: Tab; onTab: (t: Tab) => void })
               onPress={() => onTab(key)}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
-              style={styles.tab}
+              style={(s: any) => [styles.tab, s.pressed && { backgroundColor: t.accentSoft }]}
             >
               <T size={15} w={on ? 'semibold' : 'medium'} color={on ? t.accent : t.muted}>{label}</T>
               <View style={[styles.tabMark, { backgroundColor: on ? t.accent : 'transparent' }]} />

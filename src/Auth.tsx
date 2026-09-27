@@ -1,4 +1,4 @@
-import { ChevronLeft, Delete, Mail, Repeat, ShieldCheck } from './lucide';
+import { ChevronLeft, Delete, LockOpen, Mail, Repeat, ShieldCheck } from './lucide';
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import Svg, { Defs, Pattern, Rect, Text as SvgText } from 'react-native-svg';
@@ -313,12 +313,15 @@ export function Lock({
   onForgot,
   onSwitch,
   triesLeft,
+  hint,
 }: {
   maskedEmail: string;
   onTry: (pin: string) => Promise<'ok' | 'wrong' | 'locked'>;
   onForgot: () => void;
   onSwitch: () => void;
   triesLeft: number;
+  /** e.g. "The same MPIN you use on your other phone." */
+  hint?: string;
 }) {
   const [pad, setPad] = useState(false);
   const [pin, setPin] = useState('');
@@ -372,6 +375,11 @@ export function Lock({
             <T size={20} w="semibold" color={ON_BRAND} style={{ marginTop: 30 }} accessibilityRole="header">
               Enter your MPIN
             </T>
+            {hint ? (
+              <T size={14} color="rgba(237,241,238,0.75)" style={{ marginTop: 6, textAlign: 'center', paddingHorizontal: 16 }}>
+                {hint}
+              </T>
+            ) : null}
             <Dots n={pin.length} shake={shake} />
             <T size={14} color={msg ? '#F2B8B5' : 'transparent'} style={{ minHeight: 20, marginBottom: 10, textAlign: 'center' }} accessibilityLiveRegion="polite">
               {msg ?? ' '}
@@ -388,7 +396,77 @@ export function Lock({
           </T>
         </View>
         <T size={12} color="rgba(237,241,238,0.5)" style={{ marginTop: 12, marginBottom: 24 }}>
-          Gastos 2.0
+          Gastos 3.0
+        </T>
+      </View>
+    </BrandBackground>
+  );
+}
+
+/** "Enter your current MPIN first": before turning it off or changing it. Wrong tries count toward the 5. */
+export function VerifyPin({
+  title,
+  intro,
+  triesLeft,
+  onTry,
+  onCancel,
+  onForgot,
+}: {
+  title: string;
+  intro: string;
+  triesLeft: number;
+  onTry: (pin: string) => Promise<'ok' | 'wrong' | 'locked'>;
+  onCancel: () => void;
+  onForgot: () => void;
+}) {
+  const [pin, setPin] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [shake, setShake] = useState(false);
+  const checking = useRef(false);
+
+  async function digit(d: string) {
+    if (busy || checking.current || pin.length >= 4) return;
+    const next = pin + d;
+    setPin(next);
+    setMsg(null);
+    if (next.length < 4) return;
+    checking.current = true;
+    setBusy(true);
+    const r = await onTry(next);
+    checking.current = false;
+    if (r === 'wrong') {
+      setShake(true);
+      setTimeout(() => setShake(false), 120);
+      setMsg(triesLeft - 1 <= 1 ? 'Wrong MPIN. 1 try left, then you’ll need the email code.' : `Wrong MPIN. ${triesLeft - 1} tries left.`);
+      setPin('');
+    }
+    setBusy(false);
+  }
+
+  return (
+    <BrandBackground>
+      <View style={styles.lock}>
+        <Pressable onPress={onCancel} accessibilityRole="button" style={styles.cancel} hitSlop={8}>
+          <ChevronLeft size={22} color={ON_BRAND} strokeWidth={2} />
+          <T size={16} w="semibold" color={ON_BRAND}>Cancel</T>
+        </Pressable>
+        <View style={styles.verifyIcon}>
+          <LockOpen size={28} color={ON_BRAND} strokeWidth={1.8} />
+        </View>
+        <T size={20} w="semibold" color={ON_BRAND} style={{ marginTop: 18 }} accessibilityRole="header">
+          {title}
+        </T>
+        <T size={14} color="rgba(237,241,238,0.75)" style={{ marginTop: 6, textAlign: 'center', paddingHorizontal: 16 }}>
+          {intro}
+        </T>
+        <Dots n={pin.length} shake={shake} />
+        <T size={14} color={msg ? '#F2B8B5' : 'transparent'} style={{ minHeight: 20, marginBottom: 10, textAlign: 'center' }} accessibilityLiveRegion="polite">
+          {msg ?? ' '}
+        </T>
+        <Keypad onDigit={digit} onDelete={() => setPin((p) => p.slice(0, -1))} disabled={busy} />
+        <T size={15} w="semibold" color={ON_BRAND} onPress={onForgot} accessibilityRole="button" style={{ marginTop: 22, marginBottom: 30 }}>
+          Forgot MPIN?
         </T>
       </View>
     </BrandBackground>
@@ -445,10 +523,10 @@ export function SetPin({
       <View style={styles.lock}>
         <Image source={LOGO_WHITE} style={{ width: 170, height: 170 / LOGO_RATIO, marginTop: 36 }} accessibilityLabel="Gastos" />
         <T size={20} w="semibold" color={ON_BRAND} style={{ marginTop: 30 }} accessibilityRole="header">
-          {first ? 'Enter it again' : 'Create a 4-digit MPIN'}
+          {first ? 'Enter it again' : 'Create your MPIN'}
         </T>
         <T size={14} color="rgba(237,241,238,0.7)" style={{ marginTop: 6, textAlign: 'center', paddingHorizontal: 24 }}>
-          You’ll enter it each time you open Gastos. Don’t reuse your GCash, bank or phone PIN.
+          It works on every phone you sign in to. Don’t reuse your GCash, bank or phone PIN.
         </T>
         <Dots n={pin.length} shake={false} />
         <T size={14} color={msg ? '#F2B8B5' : 'transparent'} style={{ minHeight: 20, marginBottom: 10 }} accessibilityLiveRegion="polite">
@@ -514,6 +592,8 @@ const styles = StyleSheet.create({
   pinDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: ON_BRAND },
   keypad: { width: 284, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14 },
   key: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center' },
+  cancel: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, marginTop: 8 },
+  verifyIcon: { width: 56, height: 56, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginTop: 18 },
   lockLinks: {
     flexDirection: 'row',
     justifyContent: 'space-between',

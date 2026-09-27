@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { View } from 'react-native';
 import { Expense, PayLabel, Rates, convert, formatMoney, paidLabel } from './data';
 import { EntryForm, EntryFormHandle, draftFrom } from './EntryForm';
+import { play } from './fx';
+import { ConfirmDialog } from './motion';
 import { categoryIcon } from './icons';
 import { Theme } from './theme';
 import { Button, IconTile, Row, Sheet, T } from './ui';
@@ -72,19 +74,14 @@ export function EditSheet({
   onDelete: (id: string) => void;
 }) {
   const [draft, setDraft] = useState(() => (e ? draftFrom(e, labels) : null));
-  const [confirm, setConfirm] = useState(false);
+  const [ask, setAsk] = useState<null | 'save' | 'delete'>(null);
+  const [pending, setPending] = useState<Expense | null>(null);
   const form = useRef<EntryFormHandle>(null);
 
   useEffect(() => {
     setDraft(e ? draftFrom(e, labels) : null);
-    setConfirm(false);
+    setAsk(null);
   }, [e?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!confirm) return;
-    const timer = setTimeout(() => setConfirm(false), 4000);
-    return () => clearTimeout(timer);
-  }, [confirm]);
 
   if (!e || !draft) return null;
   const created = new Date(e.createdAt);
@@ -94,9 +91,9 @@ export function EditSheet({
     const v = form.current?.take();
     if (!v || !e || !draft) return;
     const cash = draft.paidWith === '' || draft.group === 'cash';
-    onSave({
+    setPending({
       ...e,
-      kind: draft.kind,
+      kind: e.kind, // locked while editing (Joe v3)
       cents: v.cents,
       category: v.category,
       note: draft.note.trim(),
@@ -106,6 +103,7 @@ export function EditSheet({
       // The amount was typed in the entry's own currency; keep it unless she's in a new one.
       currency: e.currency,
     });
+    setAsk('save');
   }
 
   return (
@@ -125,14 +123,41 @@ export function EditSheet({
         customCategories={customCategories}
         labels={labels}
         onAddLabel={onAddLabel}
+        lockKind
       />
       <Button label="Save changes" onPress={save} t={t} style={{ marginTop: 18 }} />
       <Button
-        label={confirm ? 'Tap again to delete' : e.kind === 'income' ? 'Delete this income' : 'Delete this expense'}
-        kind={confirm ? 'danger' : 'text'}
-        onPress={() => (confirm ? onDelete(e.id) : setConfirm(true))}
+        label={e.kind === 'income' ? 'Delete this income' : 'Delete this expense'}
+        kind="danger"
+        onPress={() => setAsk('delete')}
         t={t}
         style={{ marginTop: 4 }}
+      />
+      <ConfirmDialog
+        visible={ask === 'save'}
+        t={t}
+        title="Save changes?"
+        body={pending ? `${pending.category} · ${formatMoney(pending.cents, pending.currency)}` : undefined}
+        action="Save it"
+        onCancel={() => setAsk(null)}
+        onConfirm={() => {
+          setAsk(null);
+          if (pending) onSave(pending);
+        }}
+      />
+      <ConfirmDialog
+        visible={ask === 'delete'}
+        t={t}
+        title={e.kind === 'income' ? 'Delete this income?' : 'Delete this expense?'}
+        body={`${e.category} · ${formatMoney(e.cents, e.currency)}. It's removed from all your phones.`}
+        action="Delete"
+        danger
+        onCancel={() => setAsk(null)}
+        onConfirm={() => {
+          setAsk(null);
+          play('thud');
+          onDelete(e.id);
+        }}
       />
     </Sheet>
   );

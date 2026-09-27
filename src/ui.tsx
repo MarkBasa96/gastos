@@ -18,6 +18,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Defs, Ellipse, Path, RadialGradient, Stop } from 'react-native-svg';
+import { buzz, prefersReducedMotion } from './fx';
 import { Theme, cardRadius, font, radius } from './theme';
 
 // ---------- Text ----------
@@ -42,6 +43,7 @@ export function T({
   numberOfLines?: number;
   accessibilityRole?: 'header' | 'text' | 'button' | 'link';
   accessibilityLiveRegion?: 'none' | 'polite' | 'assertive';
+  accessibilityLabel?: string;
   onPress?: () => void;
 }) {
   return (
@@ -84,17 +86,19 @@ export function Button({
   label: string;
   onPress: () => void;
   t: Theme;
-  kind?: 'primary' | 'outline' | 'text' | 'danger';
+  kind?: 'primary' | 'outline' | 'text' | 'danger' | 'solidDanger';
   disabled?: boolean;
   loading?: boolean;
   icon?: LucideIcon;
   style?: StyleProp<ViewStyle>;
 }) {
-  const bg = kind === 'primary' ? t.accent : kind === 'outline' ? t.surface : 'transparent';
-  const fg = kind === 'primary' ? t.accentText : kind === 'danger' ? t.danger : kind === 'text' ? t.muted : t.text;
+  const solid = kind === 'primary' || kind === 'solidDanger';
+  const bg = kind === 'primary' ? t.accent : kind === 'solidDanger' ? t.danger : kind === 'outline' ? t.surface : 'transparent';
+  const fg = kind === 'primary' ? t.accentText : kind === 'solidDanger' ? t.bg : kind === 'danger' ? t.danger : kind === 'text' ? t.muted : t.text;
   return (
     <Pressable
       onPress={onPress}
+      onPressIn={kind === 'primary' || kind === 'solidDanger' ? () => buzz() : undefined}
       disabled={disabled || loading}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!(disabled || loading), busy: !!loading }}
@@ -104,8 +108,9 @@ export function Button({
         {
           backgroundColor: bg,
           borderColor: kind === 'outline' ? t.border : 'transparent',
-          opacity: disabled ? 0.45 : s.hovered && kind === 'primary' ? 0.92 : 1,
-          transform: [{ scale: s.pressed ? 0.98 : 1 }],
+          // Tap state: every button answers the finger (v3). Solid ones shrink and darken.
+          opacity: disabled ? 0.45 : s.pressed ? (solid ? 0.86 : 0.6) : s.hovered && solid ? 0.92 : 1,
+          transform: [{ scale: s.pressed ? 0.97 : 1 }],
         },
         webFocus(t, s.focused),
         style,
@@ -167,7 +172,7 @@ export function Segmented<V extends string>({
 }: {
   options: { value: V; label: string; icon?: LucideIcon }[];
   value: V;
-  onChange: (v: V) => void;
+  onChange: (v: V, at?: { x: number; y: number }) => void;
   t: Theme;
   small?: boolean;
   style?: StyleProp<ViewStyle>;
@@ -189,7 +194,7 @@ export function Segmented<V extends string>({
         return (
           <Pressable
             key={o.value}
-            onPress={() => onChange(o.value)}
+            onPress={(e: any) => onChange(o.value, { x: e?.nativeEvent?.pageX ?? 0, y: e?.nativeEvent?.pageY ?? 0 })}
             accessibilityRole="radio"
             accessibilityLabel={o.label}
             accessibilityState={{ checked: on }}
@@ -198,6 +203,7 @@ export function Segmented<V extends string>({
               { minHeight: small ? 34 : 40 },
               iconOnly && { flexGrow: 0, flexShrink: 0, flexBasis: 44, width: 44 },
               on && { backgroundColor: t.accentSoft },
+              { transform: [{ scale: s.pressed ? 0.94 : 1 }] },
               webFocus(t, s.focused),
             ]}
           >
@@ -322,7 +328,7 @@ export function Row({
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={(s: any) => [{ opacity: s.pressed ? 0.6 : 1 }, webFocus(t, s.focused)]}
+      style={(s: any) => [{ backgroundColor: s.pressed ? t.accentSoft : 'transparent' }, webFocus(t, s.focused)]}
     >
       {inner}
     </Pressable>
@@ -500,8 +506,24 @@ export function SyncBadge({ state, waiting, t, onPress }: { state: SyncState; wa
 }
 
 // ---------- Piggy-bank loader: circles the ring for as long as it's shown ----------
+// v3: 88 px (was 160), no trail dots. Joe: the old one was too big.
+
+const PIG_PATH =
+  'M11 17h3v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3a3.16 3.16 0 0 0 2-2h1a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-1a5 5 0 0 0-2-4V3a4 4 0 0 0-3.2 1.6l-.3.4H11a6 6 0 0 0-6 6v1a5 5 0 0 0 2 4v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1z';
+
+export function PigIcon({ t, size }: { t: Theme; size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      <Path d={PIG_PATH} fill={t.accentSoft} stroke={t.accent} strokeWidth={1.8} strokeLinejoin="round" />
+      <Path d="M16 10h.01" stroke={t.accent} strokeWidth={2} strokeLinecap="round" />
+      <Path d="M2 8v1a2 2 0 0 0 2 2h1" stroke={t.accent} strokeWidth={1.8} fill="none" strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 export function PigLoader({ t, label }: { t: Theme; label?: string }) {
+  const S = 88;
+  const R = 34;
   const spin = useRef(new Animated.Value(0)).current;
   const [still, setStill] = useState(false);
   useEffect(() => {
@@ -517,9 +539,9 @@ export function PigLoader({ t, label }: { t: Theme; label?: string }) {
   }, [spin, still]);
   return (
     <View style={styles.loaderWrap} accessibilityRole="progressbar" accessibilityLabel={label ?? 'Loading'}>
-      <View style={{ width: 160, height: 160 }}>
-        <Svg width={160} height={160} style={StyleSheet.absoluteFill}>
-          <Circle cx={80} cy={80} r={62} stroke={t.accentSoft} strokeWidth={5} fill="none" />
+      <View style={{ width: S, height: S }}>
+        <Svg width={S} height={S} style={StyleSheet.absoluteFill}>
+          <Circle cx={S / 2} cy={S / 2} r={R} stroke={t.accentSoft} strokeWidth={4} fill="none" />
         </Svg>
         <Animated.View
           style={[
@@ -527,36 +549,47 @@ export function PigLoader({ t, label }: { t: Theme; label?: string }) {
             { transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] },
           ]}
         >
-          <View style={styles.pig}>
+          <View style={[styles.pig, { left: S / 2 - 13, top: S / 2 - R - 13 }]}>
             <View style={[styles.coin, { backgroundColor: t.accent }]}>
-              <T size={11} w="bold" color={t.accentText}>
+              <T size={8} w="bold" color={t.accentText} style={{ lineHeight: 10 }}>
                 ₱
               </T>
             </View>
-            <Svg width={40} height={40} viewBox="0 0 24 24">
-              <Path
-                d="M11 17h3v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3a3.16 3.16 0 0 0 2-2h1a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-1a5 5 0 0 0-2-4V3a4 4 0 0 0-3.2 1.6l-.3.4H11a6 6 0 0 0-6 6v1a5 5 0 0 0 2 4v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1z"
-                fill={t.accentSoft}
-                stroke={t.accent}
-                strokeWidth={1.8}
-                strokeLinejoin="round"
-              />
-              <Path d="M16 10h.01" stroke={t.accent} strokeWidth={2} strokeLinecap="round" />
-              <Path d="M2 8v1a2 2 0 0 0 2 2h1" stroke={t.accent} strokeWidth={1.8} fill="none" strokeLinecap="round" />
-            </Svg>
+            <PigIcon t={t} size={26} />
           </View>
-          <View style={[styles.trail, { width: 9, height: 9, left: 80 - 34, top: 22, opacity: 0.45, backgroundColor: t.accent }]} />
-          <View style={[styles.trail, { width: 7, height: 7, left: 80 - 50, top: 31, opacity: 0.3, backgroundColor: t.accent }]} />
-          <View style={[styles.trail, { width: 5, height: 5, left: 80 - 63, top: 42, opacity: 0.18, backgroundColor: t.accent }]} />
         </Animated.View>
       </View>
       {label ? (
-        <T size={15} color={t.muted} style={{ marginTop: 26 }}>
+        <T size={14} color={t.muted} style={{ marginTop: 16 }}>
           {label}
         </T>
       ) : null}
     </View>
   );
+}
+
+// ---------- Opening motion: 0 -> 1 once, ease-out (count-ups, the ring drawing in) ----------
+
+/** Runs once when the screen mounts, which is every time its tab opens. Instant under reduced motion. */
+export function useProgress(ms = 550, key?: unknown): number {
+  const [p, setP] = useState(() => (prefersReducedMotion() ? 1 : 0));
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      setP(1);
+      return;
+    }
+    let raf = 0;
+    const t0 = Date.now() + 120;
+    const tick = () => {
+      const x = Math.min(Math.max((Date.now() - t0) / ms, 0), 1);
+      setP(1 - Math.pow(1 - x, 3));
+      if (x < 1) raf = requestAnimationFrame(tick);
+    };
+    setP(0);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [ms, key]);
+  return p;
 }
 
 // ---------- Donut (one hue, total in the hole) ----------
@@ -572,6 +605,7 @@ export function Donut({
   size?: number;
   center: ReactNode;
 }) {
+  const p = useProgress(700);
   const r = size / 2 - 18;
   const c = 2 * Math.PI * r;
   const total = slices.reduce((s, x) => s + x.value, 0) || 1;
@@ -582,7 +616,7 @@ export function Donut({
       <Svg width={size} height={size}>
         <Circle cx={size / 2} cy={size / 2} r={r} stroke={t.accentSoft} strokeWidth={20} fill="none" />
         {slices.map((s, i) => {
-          const len = (s.value / total) * c;
+          const len = (s.value / total) * c * p;
           const el = (
             <Circle
               key={i}
@@ -658,17 +692,16 @@ const styles = StyleSheet.create({
   sync: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   loaderWrap: { alignItems: 'center', justifyContent: 'center' },
-  pig: { position: 'absolute', left: 80 - 20, top: 18 - 20, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
+  pig: { position: 'absolute', width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
   coin: {
     position: 'absolute',
-    top: -12,
-    left: 18,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    top: -8,
+    left: 12,
+    width: 13,
+    height: 13,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
   },
-  trail: { position: 'absolute', borderRadius: 10 },
 });

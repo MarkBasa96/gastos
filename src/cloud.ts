@@ -186,3 +186,23 @@ export async function syncSettings(local: Settings, userId: string): Promise<Set
     paymentLabels: Array.isArray(data.payment_labels) && data.payment_labels.length ? cleanLabels(data.payment_labels) : local.paymentLabels,
   };
 }
+
+/**
+ * Rename a wallet on every past entry. Server-side, one column only, so it can never push this
+ * phone's stale copy of a row over an edit made on another phone (Kenshin v3 M11). RLS keeps it to
+ * her own rows; updated_at moves, so the next pull brings the new name to every phone.
+ */
+export async function renamePaidWith(from: string, to: string): Promise<void> {
+  if (!supabase) throw new Error('offline');
+  const { error } = await supabase.from('expenses').update({ paid_with: to }).eq('paid_with', from);
+  if (error) throw error;
+}
+
+/** Feedback goes through one server function: it checks the limits, stores it and emails Joe (Kenshin v3 Part 3). */
+export async function sendFeedback(kind: string, body: string, appVersion: string): Promise<'ok' | 'slow_down' | 'error'> {
+  if (!supabase) return 'error';
+  const { data, error } = await supabase.rpc('send_feedback', { p_kind: kind, p_body: body, p_app_version: appVersion });
+  if (error) return 'error';
+  const r = (data as { result?: string } | null)?.result;
+  return r === 'ok' || r === 'slow_down' ? r : 'error';
+}
