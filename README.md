@@ -34,6 +34,7 @@ remembers your usual wallet, and Save sits right under your thumb.
 - **History that answers questions.** Pick any date range, filter All / Expense / Income, and the chart follows: spending, income, or both rings side by side. The list shows a screenful, then *See more*.
 - **One MPIN for all your phones.** Set it once; a new phone asks for the same one. Turning it off or changing it asks for the current MPIN first.
 - **Works offline from a cold start.** The app keeps a copy of itself on the phone, so it opens and logs with no signal and syncs later.
+- **The phone's Back button works like you'd expect.** It closes the open sheet or pop-up (never saving or deleting anything), goes from History or Settings back to Log, and on Log asks before closing the app.
 - **Edit your cards and e-wallets,** send feedback from Settings, a smaller loading screen with skeletons, sounds you can switch off, tap feedback on every button, and a circular light/dark switch.
 
 ## Features
