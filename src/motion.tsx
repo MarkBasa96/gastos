@@ -157,10 +157,18 @@ export function ConfirmDialog({
 
 // ---------- Pig beside Save: the coin drops in and the pig wiggles (pig B, Joe v3) ----------
 
-export function PigSlot({ t, drop, label }: { t: Theme; drop: number; label: string }) {
+export function PigSlot({ t, drop, label, onTap }: { t: Theme; drop: number; label: string; onTap?: () => void }) {
   const coin = useRef(new Animated.Value(0)).current;
   const wiggle = useRef(new Animated.Value(0)).current;
   const [shown, setShown] = useState(false);
+  // Tap the pig (Joe v3 test round): a happy wiggle first, then the coin shower.
+  const tapped = () => {
+    if (prefersReducedMotion()) return onTap?.();
+    const native = Platform.OS !== 'web';
+    const step = (to: number, d: number) => Animated.timing(wiggle, { toValue: to, duration: d, useNativeDriver: native });
+    Animated.sequence([step(1, 70), step(-1, 110), step(1, 110), step(-1, 110), step(0, 70)]).start();
+    setTimeout(() => onTap?.(), 250);
+  };
   useEffect(() => {
     if (!drop) return;
     if (prefersReducedMotion()) return;
@@ -179,7 +187,12 @@ export function PigSlot({ t, drop, label }: { t: Theme; drop: number; label: str
     ]).start(() => setShown(false));
   }, [drop, coin, wiggle]);
   return (
-    <View style={[styles.slot, { backgroundColor: t.accentSoft }]} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+    <Pressable
+      onPress={tapped}
+      accessibilityRole="button"
+      accessibilityLabel="Piggy bank"
+      style={(s: any) => [styles.slot, { backgroundColor: t.accentSoft, transform: [{ scale: s.pressed ? 0.92 : 1 }] }]}
+    >
       {shown && (
         <Animated.View
           style={[
@@ -202,7 +215,7 @@ export function PigSlot({ t, drop, label }: { t: Theme; drop: number; label: str
       <Animated.View style={{ transform: [{ rotate: wiggle.interpolate({ inputRange: [-1, 1], outputRange: ['-10deg', '10deg'] }) }] }}>
         <PigIcon t={t} size={30} />
       </Animated.View>
-    </View>
+    </Pressable>
   );
 }
 

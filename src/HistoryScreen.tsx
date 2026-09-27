@@ -1,5 +1,5 @@
 import { CalendarRange, ChartPie, ChevronDown, ChevronLeft, ChevronRight, Search, X } from './lucide';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Expense, Kind, MONTHS, Rates, SHORT_MONTHS, convert, formatMoney, localDate, parseLocalDate, paidLabel, sumIn } from './data';
 import { whenLabel } from './EntryForm';
@@ -91,23 +91,36 @@ export function HistoryScreen({
     return [...hits].sort((a, b) => (a.date === b.date ? b.createdAt - a.createdAt : a.date < b.date ? 1 : -1));
   }, [expenses, inRange, query, filter]);
 
-  const spentList = inRange.filter((e) => e.kind === 'expense');
-  const spent = sumIn(spentList, currency, rates);
-  const income = sumIn(inRange.filter((e) => e.kind === 'income'), currency, rates).cents;
+  const expenseList = useMemo(() => inRange.filter((e) => e.kind === 'expense'), [inRange]);
+  const incomeList = useMemo(() => inRange.filter((e) => e.kind === 'income'), [inRange]);
+  const spent = sumIn(expenseList, currency, rates);
+  const came = sumIn(incomeList, currency, rates);
+  const income = came.cents;
+  const missing = spent.missing + came.missing;
 
-  const byCat = useMemo(() => {
+  // Donut: top 5 categories, the rest folded into "Everything else" so the legend stays readable.
+  const slicesOf = (rows: Expense[]) => {
     const m = new Map<string, number>();
-    for (const e of spentList) {
+    for (const e of rows) {
       const c = convert(e.cents, e.currency, rates, currency);
       if (c !== null) m.set(e.category, (m.get(e.category) ?? 0) + c);
     }
-    return [...m.entries()].sort((a, b) => b[1] - a[1]);
-  }, [spentList, rates, currency]);
+    const byCat = [...m.entries()].sort((a, b) => b[1] - a[1]);
+    const out = byCat.slice(0, 5).map(([name, cents], i) => ({ name, cents, color: t.chart[i] }));
+    const rest = byCat.slice(5).reduce((s, [, c]) => s + c, 0);
+    if (rest > 0) out.push({ name: 'Everything else', cents: rest, color: t.chart[5] });
+    return out;
+  };
+  const spentSlices = useMemo(() => slicesOf(expenseList), [expenseList, rates, currency, t]); // eslint-disable-line react-hooks/exhaustive-deps
+  const incomeSlices = useMemo(() => slicesOf(incomeList), [incomeList, rates, currency, t]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Donut: top 5 categories, the rest folded into "Everything else" so the legend stays readable.
-  const slices = byCat.slice(0, 5).map(([name, cents], i) => ({ name, cents, color: t.chart[i] }));
-  const restCents = byCat.slice(5).reduce((s, [, c]) => s + c, 0);
-  if (restCents > 0) slices.push({ name: 'Everything else', cents: restCents, color: t.chart[5] });
+  // Two taps to edit (Joe): the first tap arms a row and shows "Edit ›"; it disarms by itself.
+  const [armed, setArmed] = useState<string | null>(null);
+  useEffect(() => {
+    if (!armed) return;
+    const timer = setTimeout(() => setArmed(null), 4000);
+    return () => clearTimeout(timer);
+  }, [armed]);
 
   const page = list.slice(0, shown);
   const groups = useMemo(() => {
@@ -134,7 +147,6 @@ export function HistoryScreen({
     setAnchor(new Date());
   }
 
-  const totalFor = filter === 'income' ? income : spent.cents;
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.page} keyboardShouldPersistTaps="handled">
@@ -255,54 +267,7 @@ export function HistoryScreen({
         </View>
       ) : (
         <>
-          {!query && period !== 'dates' && spentList.length > 0 && (
-            <View style={styles.chartRow}>
-              <Donut
-                t={t}
-                size={150}
-                slices={slices.map((s) => ({ value: s.cents, color: s.color }))}
-                center={
-                  <>
-                    <T size={13} w="medium" color={t.muted}>Spent</T>
-                    <CountUp cents={spent.cents} currency={currency} size={16} color={t.text} style={{ letterSpacing: -0.3 }} />
-                  </>
-                }
-              />
-              <View style={styles.legend}>
-                {slices.map((s) => (
-                  <View key={s.name} style={styles.legendRow}>
-                    <View style={[styles.swatch, { backgroundColor: s.color }]} />
-                    <T size={14} color={t.text} numberOfLines={1} style={{ flex: 1 }}>{s.name}</T>
-                    <T size={13} color={t.muted} num>{Math.round((s.cents / (spent.cents || 1)) * 100)}%</T>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-          {!query && period === 'dates' && (
-            <Card t={t} style={styles.summary}>
-              <View>
-                <T size={13} color={t.muted}>{filter === 'income' ? 'Came in' : 'Spent'}, {r.label}</T>
-                <CountUp cents={totalFor} currency={currency} size={24} color={t.text} style={{ letterSpacing: -0.4, marginTop: 2 }} />
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <T size={13} color={t.muted}>Entries</T>
-                <T size={24} w="bold" color={t.text} num style={{ marginTop: 2 }}>{list.length}</T>
-              </View>
-            </Card>
-          )}
-          {!query && period !== 'dates' && (income > 0 || spentList.length === 0) && (
-            <T size={14} color={t.muted} style={{ marginTop: 10 }} num>
-              {spentList.length === 0 ? 'No spending yet. ' : ''}Income {periodWord}: {formatMoney(income, currency)}
-            </T>
-          )}
-          {!query && spent.missing > 0 && (
-            <T size={13} color={t.warning} style={{ marginTop: 8 }}>
-              {spent.missing} {spent.missing === 1 ? 'entry is' : 'entries are'} in another currency with no rate yet. Connect to the internet to include {spent.missing === 1 ? 'it' : 'them'}.
-            </T>
-          )}
-
-          {/* All / Expense / Income (Joe v3) */}
+          {/* All / Expense / Income (Joe v3): drives the chart AND the list */}
           <View style={styles.filters} accessibilityRole="radiogroup">
             {(['all', 'expense', 'income'] as const).map((k) => {
               const on = filter === k;
@@ -326,14 +291,88 @@ export function HistoryScreen({
             })}
           </View>
 
+          {!query && filter === 'all' && (
+            // All: Spent and Came in, side by side (Joe picked two rings)
+            <View style={styles.pair} key={`all-${r.from}-${r.to}`}>
+              {[
+                { label: 'Spent', cents: spent.cents, slices: spentSlices },
+                { label: 'Came in', cents: income, slices: incomeSlices },
+              ].map((ring) => (
+                <View key={ring.label} style={styles.ringCol}>
+                  <Donut
+                    t={t}
+                    size={132}
+                    slices={ring.slices.map((s) => ({ value: s.cents, color: s.color }))}
+                    center={
+                      <>
+                        <T size={12} w="medium" color={t.muted}>{ring.label}</T>
+                        <CountUp cents={ring.cents} currency={currency} size={14} color={t.text} style={{ letterSpacing: -0.3 }} />
+                      </>
+                    }
+                  />
+                  <View style={styles.miniLegend}>
+                    {ring.slices.slice(0, 3).map((s) => (
+                      <View key={s.name} style={styles.legendRow}>
+                        <View style={[styles.swatch, { backgroundColor: s.color }]} />
+                        <T size={12} color={t.text} numberOfLines={1} style={{ flex: 1 }}>{s.name}</T>
+                        <T size={12} color={t.muted} num>{Math.round((s.cents / (ring.cents || 1)) * 100)}%</T>
+                      </View>
+                    ))}
+                    {ring.slices.length === 0 && <T size={12} color={t.muted}>Nothing yet</T>}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+          {!query && filter !== 'all' && (() => {
+            const inc = filter === 'income';
+            const ring = inc ? incomeSlices : spentSlices;
+            const total = inc ? income : spent.cents;
+            if (!ring.length)
+              return (
+                <T size={15} color={t.muted} style={{ marginTop: 14 }}>
+                  No {inc ? 'income' : 'expenses'} {periodWord}.
+                </T>
+              );
+            return (
+              <View style={styles.chartRow} key={`${filter}-${r.from}-${r.to}`}>
+                <Donut
+                  t={t}
+                  size={150}
+                  slices={ring.map((s) => ({ value: s.cents, color: s.color }))}
+                  center={
+                    <>
+                      <T size={13} w="medium" color={t.muted}>{inc ? 'Came in' : 'Spent'}</T>
+                      <CountUp cents={total} currency={currency} size={16} color={t.text} style={{ letterSpacing: -0.3 }} />
+                    </>
+                  }
+                />
+                <View style={styles.legend}>
+                  {ring.map((s) => (
+                    <View key={s.name} style={styles.legendRow}>
+                      <View style={[styles.swatch, { backgroundColor: s.color }]} />
+                      <T size={14} color={t.text} numberOfLines={1} style={{ flex: 1 }}>{s.name}</T>
+                      <T size={13} color={t.muted} num>{Math.round((s.cents / (total || 1)) * 100)}%</T>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            );
+          })()}
+          {!query && period === 'dates' && (
+            <T size={13} color={t.muted} style={{ marginTop: 10 }} num>
+              {list.length} {list.length === 1 ? 'entry' : 'entries'} on {r.label}
+            </T>
+          )}
+          {!query && missing > 0 && (
+            <T size={13} color={t.warning} style={{ marginTop: 8 }}>
+              {missing} {missing === 1 ? 'entry is' : 'entries are'} in another currency with no rate yet. Connect to the internet to include {missing === 1 ? 'it' : 'them'}.
+            </T>
+          )}
+
           {query && (
             <T size={14} color={t.muted} style={{ marginTop: 10, marginBottom: 4 }}>
               {list.length === 0 ? `Nothing matches “${q.trim()}”.` : `${list.length} ${list.length === 1 ? 'match' : 'matches'}`}
-            </T>
-          )}
-          {!query && list.length === 0 && (
-            <T size={15} color={t.muted} style={{ marginTop: 14 }}>
-              No {filter === 'income' ? 'income' : 'expenses'} {periodWord}.
             </T>
           )}
 
@@ -344,7 +383,7 @@ export function HistoryScreen({
               </T>
               <Card t={t}>
                 {g.items.map((e, i) => (
-                  <ExpenseRow key={e.id} e={e} t={t} currency={currency} rates={rates} first={i === 0} onPress={onEdit} />
+                  <ExpenseRow key={e.id} e={e} t={t} currency={currency} rates={rates} first={i === 0} onPress={onEdit} armed={armed === e.id} onArm={setArmed} />
                 ))}
               </Card>
             </View>
@@ -396,7 +435,10 @@ const styles = StyleSheet.create({
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   swatch: { width: 9, height: 9, borderRadius: 3 },
   summary: { marginTop: 12, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  filters: { flexDirection: 'row', gap: 8, marginTop: 14 },
+  filters: { flexDirection: 'row', gap: 8, marginTop: 10, marginBottom: 4 },
+  pair: { flexDirection: 'row', gap: 12, marginTop: 12 },
+  ringCol: { flex: 1, alignItems: 'center', gap: 10 },
+  miniLegend: { alignSelf: 'stretch', gap: 6, paddingHorizontal: 4 },
   filter: { minHeight: 44, paddingHorizontal: 16, borderRadius: radius, borderWidth: 1, justifyContent: 'center' },
   day: { marginTop: 18, marginBottom: 6 },
   more: { minHeight: 48, marginTop: 14, borderRadius: radius, borderWidth: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },

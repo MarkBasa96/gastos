@@ -1,6 +1,7 @@
 import { ChevronLeft, Delete, LockOpen, Mail, Repeat, ShieldCheck } from './lucide';
 import { ReactNode, useEffect, useRef, useState } from 'react';
-import { Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Animated, Easing, Image, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { buzz, prefersReducedMotion } from './fx';
 import Svg, { Defs, Pattern, Rect, Text as SvgText } from 'react-native-svg';
 import { maskEmail } from './pin';
 import { Turnstile, TurnstileHandle, turnstileEnabled } from './Turnstile';
@@ -283,13 +284,22 @@ function Keypad({ onDigit, onDelete, disabled }: { onDigit: (d: string) => void;
   );
 }
 
-function Dots({ n, shake }: { n: number; shake: boolean }) {
+function Dots({ n, shake }: { n: number; shake: number }) {
+  const x = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!shake) return;
+    buzz([70, 40, 70]); // follows the phone's own vibration setting
+    if (prefersReducedMotion()) return;
+    const native = Platform.OS !== 'web';
+    const step = (to: number) => Animated.timing(x, { toValue: to, duration: 55, easing: Easing.linear, useNativeDriver: native });
+    Animated.sequence([step(12), step(-12), step(9), step(-9), step(5), step(0)]).start();
+  }, [shake, x]);
   return (
-    <View style={[styles.dots, shake && { transform: [{ translateX: 6 }] }]} accessibilityLabel={`${n} of 4 digits entered`}>
+    <Animated.View style={[styles.dots, { transform: [{ translateX: x }] }]} accessibilityLabel={`${n} of 4 digits entered`}>
       {[0, 1, 2, 3].map((i) => (
-        <View key={i} style={[styles.pinDot, i < n && { backgroundColor: ON_BRAND }]} />
+        <View key={i} style={[styles.pinDot, i < n && styles.pinDotOn]} />
       ))}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -334,7 +344,7 @@ export function Lock({
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [shake, setShake] = useState(false);
+  const [shake, setShake] = useState(0);
   const checking = useRef(false); // a fast double tap must not count as one guess (Kenshin audit)
 
   async function digit(d: string) {
@@ -348,8 +358,7 @@ export function Lock({
     const r = await onTry(next);
     checking.current = false;
     if (typeof r === 'object') {
-      setShake(true);
-      setTimeout(() => setShake(false), 120);
+      setShake((s) => s + 1);
       setMsg(wrongMsg(r.left));
       setPin('');
     } else if (r === 'offline') {
@@ -430,7 +439,7 @@ export function VerifyPin({
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const [shake, setShake] = useState(false);
+  const [shake, setShake] = useState(0);
   const checking = useRef(false);
 
   async function digit(d: string) {
@@ -444,8 +453,7 @@ export function VerifyPin({
     const r = await onTry(next);
     checking.current = false;
     if (typeof r === 'object') {
-      setShake(true);
-      setTimeout(() => setShake(false), 120);
+      setShake((s) => s + 1);
       setMsg(wrongMsg(r.left));
       setPin('');
     } else if (r === 'offline') {
@@ -547,7 +555,7 @@ export function SetPin({
         <T size={14} color="rgba(237,241,238,0.7)" style={{ marginTop: 6, textAlign: 'center', paddingHorizontal: 24 }}>
           It works on every phone you sign in to. Don’t reuse your GCash, bank or phone PIN.
         </T>
-        <Dots n={pin.length} shake={false} />
+        <Dots n={pin.length} shake={0} />
         <T size={14} color={msg ? '#F2B8B5' : 'transparent'} style={{ minHeight: 20, marginBottom: 10 }} accessibilityLiveRegion="polite">
           {msg ?? ' '}
         </T>
@@ -612,7 +620,8 @@ const styles = StyleSheet.create({
   keyDots: { width: 58, flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   keyDot: { width: 14, height: 14, borderRadius: 7, backgroundColor: '#1D6B45' },
   dots: { flexDirection: 'row', gap: 18, marginTop: 22, marginBottom: 14 },
-  pinDot: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: ON_BRAND },
+  pinDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: ON_BRAND },
+  pinDotOn: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF' },
   keypad: { width: 284, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14 },
   key: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center' },
   cancel: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 44, marginTop: 8 },

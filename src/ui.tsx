@@ -4,6 +4,7 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -568,6 +569,10 @@ export function PigLoader({ t, label }: { t: Theme; label?: string }) {
             </View>
             <PigIcon t={t} size={26} />
           </View>
+          {/* Trail dots behind the pig (back by Joe's request, v3 test round) */}
+          <View style={[styles.trail, { width: 6, height: 6, left: 31.3 - 3, top: 12.5 - 3, opacity: 0.45, backgroundColor: t.accent }]} />
+          <View style={[styles.trail, { width: 5, height: 5, left: 23.1 - 2.5, top: 17.2 - 2.5, opacity: 0.3, backgroundColor: t.accent }]} />
+          <View style={[styles.trail, { width: 4, height: 4, left: 17.2 - 2, top: 23.1 - 2, opacity: 0.18, backgroundColor: t.accent }]} />
         </Animated.View>
       </View>
       {label ? (
@@ -575,6 +580,23 @@ export function PigLoader({ t, label }: { t: Theme; label?: string }) {
           {label}
         </T>
       ) : null}
+    </View>
+  );
+}
+
+// ---------- Opening screen: the wide green logo on white, the pig spinner below (Joe, v3 test round) ----------
+// White in both themes, so it continues Android's white splash without a flash.
+
+// The all-green wide logo (Joe's photo 3), not logo-color.png, which is a different art version.
+const LOGO_COLOR = require('../assets/brand/logo-green.png');
+
+export function BrandLoader({ t }: { t: Theme }) {
+  // The loader's pig uses the light theme's greens on the white screen, whatever the phone's theme.
+  const lightT = { ...t, accent: '#1D6B45', accentSoft: '#E3F0E8', accentText: '#FFFFFF', muted: '#5B6660', dark: false };
+  return (
+    <View style={styles.brand} accessibilityLabel="Opening Gastos">
+      <Image source={LOGO_COLOR} style={{ width: 240, height: 240 / (1983 / 793) }} resizeMode="contain" accessibilityLabel="Gastos" />
+      <PigLoader t={lightT} />
     </View>
   );
 }
@@ -703,6 +725,8 @@ const styles = StyleSheet.create({
   sync: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 32 },
   dot: { width: 7, height: 7, borderRadius: 4 },
   loaderWrap: { alignItems: 'center', justifyContent: 'center' },
+  trail: { position: 'absolute', borderRadius: 4 },
+  brand: { flex: 1, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', gap: 36 },
   pig: { position: 'absolute', width: 26, height: 26, alignItems: 'center', justifyContent: 'center' },
   coin: {
     position: 'absolute',

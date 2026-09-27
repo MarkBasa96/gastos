@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { ChevronRight, Pencil } from './lucide';
 import { Expense, PayLabel, Rates, convert, formatMoney, paidLabel } from './data';
 import { EntryForm, EntryFormHandle, draftFrom } from './EntryForm';
 import { play } from './fx';
@@ -22,6 +23,8 @@ export function ExpenseRow({
   rates,
   first,
   onPress,
+  armed,
+  onArm,
 }: {
   e: Expense;
   t: Theme;
@@ -29,12 +32,20 @@ export function ExpenseRow({
   rates: Rates | null;
   first?: boolean;
   onPress: (e: Expense) => void;
+  /** Two taps to edit (Joe, v3 test round): the first tap shows "Edit ›" over the row, the second opens it. */
+  armed?: boolean;
+  onArm?: (id: string | null) => void;
 }) {
   const m = money(e, currency, rates);
   const income = e.kind === 'income';
   const detail = [e.note, paidLabel(e)].filter(Boolean).join(' · ');
-  return (
-    <Row t={t} first={first} onPress={() => onPress(e)} label={`${e.category}, ${income ? 'plus' : 'minus'} ${m.main}. Tap to edit.`}>
+  const row = (
+    <Row
+      t={t}
+      first={first}
+      onPress={() => (onArm ? onArm(e.id) : onPress(e))}
+      label={`${e.category}, ${income ? 'plus' : 'minus'} ${m.main}. Tap to edit.`}
+    >
       <IconTile icon={categoryIcon(e.category)} t={t} />
       <View style={{ flex: 1, minWidth: 0 }}>
         <T size={15} w="semibold" color={t.text} numberOfLines={1}>{e.category}</T>
@@ -50,7 +61,38 @@ export function ExpenseRow({
       </View>
     </Row>
   );
+  if (!armed) return row;
+  return (
+    <View>
+      {row}
+      <Pressable
+        onPress={() => {
+          onArm?.(null);
+          onPress(e);
+        }}
+        accessibilityRole="button"
+        accessibilityLabel={`Edit ${e.category}, ${m.main}`}
+        style={[
+          StyleSheet.absoluteFill,
+          styles.armed,
+          { backgroundColor: t.dark ? 'rgba(17,21,19,0.72)' : 'rgba(246,247,246,0.72)' },
+          Platform.OS === 'web' ? ({ backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)' } as any) : null,
+        ]}
+      >
+        <View style={[styles.editPill, { backgroundColor: t.accent }]}>
+          <Pencil size={15} color={t.accentText} strokeWidth={2.2} />
+          <T size={15} w="semibold" color={t.accentText}>Edit</T>
+          <ChevronRight size={16} color={t.accentText} strokeWidth={2.4} />
+        </View>
+      </Pressable>
+    </View>
+  );
 }
+
+const styles = StyleSheet.create({
+  armed: { alignItems: 'center', justifyContent: 'center' },
+  editPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 16, minHeight: 36, borderRadius: 18 },
+});
 
 /** One entry, as shown in a pop-up: exactly what's about to be saved or deleted (same row for both, Erina). */
 export function EntryPreview({ e, t, currency, rates }: { e: Expense; t: Theme; currency: string; rates: Rates | null }) {

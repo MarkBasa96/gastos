@@ -470,7 +470,7 @@ export function ConvertSheet({
 
 const styles = StyleSheet.create({
   addLink: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 44, marginTop: 10 },
-  quick: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  quick: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }, // wraps: "This year" was cut off on Joe's phone
   chip: { minHeight: 40, paddingHorizontal: 16, borderRadius: radius, borderWidth: 1, justifyContent: 'center' },
   monthRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   cal: { flexDirection: 'row', flexWrap: 'wrap' },

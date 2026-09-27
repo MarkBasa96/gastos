@@ -44,6 +44,7 @@ import {
 import { play } from './fx';
 import { payIcon } from './icons';
 import { ConfirmDialog, Switch } from './motion';
+import { SavedPill, SentCelebration } from './celebrate';
 import { ConvertSheet, CurrencySheet } from './sheets';
 import { Theme } from './theme';
 import { Button, Card, Field, IconTile, Label, Row, Segmented, Sheet, SyncState, T } from './ui';
@@ -143,6 +144,12 @@ export function SettingsScreen({
   const [askOut, setAskOut] = useState(false);
   const [walletSheet, setWalletSheet] = useState(false);
   const [feedbackSheet, setFeedbackSheet] = useState(false);
+  const [savedTick, setSavedTick] = useState(0);
+  const [celebrate, setCelebrate] = useState(false);
+  const save = (s: Settings) => {
+    onSettings(s);
+    setSavedTick((n) => n + 1);
+  };
 
   useEffect(() => {
     AsyncStorage.getItem(LAST_BACKUP_KEY).then(setLastBackup).catch(() => {});
@@ -216,6 +223,7 @@ export function SettingsScreen({
     account.sync === 'offline' || account.sync === 'waiting' ? 'Offline' : account.sync === 'saving' ? 'Saving…' : 'Backed up online';
 
   return (
+    <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.page}>
       <T size={28} w="bold" color={t.text} style={styles.h1} accessibilityRole="header">
         Settings
@@ -341,7 +349,7 @@ export function SettingsScreen({
             <T size={16} color={t.text}>Sounds</T>
             <T size={13} color={t.muted}>Coin clink when you save</T>
           </View>
-          <Switch t={t} label="Sounds" value={settings.sounds} onChange={(v) => onSettings({ ...settings, sounds: v })} />
+          <Switch t={t} label="Sounds" value={settings.sounds} onChange={(v) => save({ ...settings, sounds: v })} />
         </Row>
       </Card>
       {curErr && <T size={13} color={t.danger} style={{ marginTop: 8 }}>{curErr}</T>}
@@ -401,7 +409,7 @@ export function SettingsScreen({
               </View>
             </Row>
           </Card>
-          <Button label="Sign out" kind="text" onPress={() => setAskOut(true)} t={t} style={{ marginTop: 16 }} />
+          <Button label="Sign out" kind="text" onPress={() => setAskOut(true)} t={t} style={{ marginTop: 16, alignSelf: 'center', paddingHorizontal: 32, borderColor: t.border, borderRadius: 12 }} />
           <T size={12} color={t.muted} style={{ textAlign: 'center' }}>
             Signing out removes your entries from this phone. They stay safe in your account.
           </T>
@@ -435,10 +443,23 @@ export function SettingsScreen({
         labels={settings.paymentLabels}
         online={online}
         signedIn={account.signedIn}
-        onChange={(labels) => onSettings({ ...settings, paymentLabels: labels })}
+        onChange={(labels) => save({ ...settings, paymentLabels: labels })}
+        savedTick={savedTick}
         onRename={onRenameLabel}
       />
-      {feedbackSheet && <FeedbackSheet t={t} email={account.email} online={online} onClose={() => setFeedbackSheet(false)} onSend={onSendFeedback} />}
+      {feedbackSheet && (
+        <FeedbackSheet
+          t={t}
+          email={account.email}
+          online={online}
+          onClose={() => setFeedbackSheet(false)}
+          onSend={onSendFeedback}
+          onSent={() => {
+            setFeedbackSheet(false);
+            setCelebrate(true);
+          }}
+        />
+      )}
       <CurrencySheet visible={curSheet} onClose={() => setCurSheet(false)} t={t} value={settings.currency} onPick={pickCurrency} />
       <ConvertSheet
         visible={!!convertTo}
@@ -451,7 +472,7 @@ export function SettingsScreen({
         onConfirm={() => {
           if (!convertTo || !pendingRates) return;
           onRates(pendingRates);
-          onSettings({ ...settings, currency: convertTo });
+          save({ ...settings, currency: convertTo });
           setConvertTo(null);
         }}
       />
@@ -537,7 +558,7 @@ export function SettingsScreen({
               <Row key={c} t={t} first={i === 0}>
                 <T size={16} color={t.text} style={{ flex: 1 }}>{c}</T>
                 <Pressable
-                  onPress={() => onSettings({ ...settings, categories: settings.categories.filter((x) => x !== c) })}
+                  onPress={() => save({ ...settings, categories: settings.categories.filter((x) => x !== c) })}
                   accessibilityRole="button"
                   accessibilityLabel={`Remove ${c}`}
                   hitSlop={10}
@@ -557,7 +578,7 @@ export function SettingsScreen({
             icon={Plus}
             onPress={() => {
               const next = cleanCategories([...settings.categories, newCat]);
-              if (next.length > settings.categories.length) onSettings({ ...settings, categories: next });
+              if (next.length > settings.categories.length) save({ ...settings, categories: next });
               setNewCat('');
             }}
             t={t}
@@ -567,8 +588,17 @@ export function SettingsScreen({
         <T size={13} color={t.muted} style={{ marginTop: 8 }}>
           Removing one keeps past entries as they are.
         </T>
+        <SavedPill t={t} show={savedTick} inline />
       </Sheet>
     </ScrollView>
+      <SavedPill t={t} show={celebrate ? 0 : savedTick} />
+      {celebrate && (
+        <>
+          <SentCelebration t={t} onDone={() => setCelebrate(false)} />
+          <SavedPill t={t} show={1} label="Feedback sent. Thank you!" />
+        </>
+      )}
+    </View>
   );
 }
 
@@ -603,6 +633,7 @@ function WalletsSheet({
   signedIn,
   onChange,
   onRename,
+  savedTick,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -612,6 +643,7 @@ function WalletsSheet({
   signedIn: boolean;
   onChange: (labels: PayLabel[]) => void;
   onRename: (from: string, to: string) => Promise<void>;
+  savedTick: number;
 }) {
   const [editing, setEditing] = useState<PayLabel | null>(null);
   const [name, setName] = useState('');
@@ -685,6 +717,7 @@ function WalletsSheet({
             <Card t={t}>{wallets.map((l, i) => item(l, i === 0))}</Card>
           </>
         )}
+        <SavedPill t={t} show={savedTick} inline />
       </Sheet>
       <Sheet visible={visible && !!editing} onClose={() => setEditing(null)} t={t} title={editing ? `Edit ${editing.n}` : 'Edit'}>
         <Label t={t}>Name</Label>
@@ -746,12 +779,14 @@ function FeedbackSheet({
   online,
   onClose,
   onSend,
+  onSent,
 }: {
   t: Theme;
   email: string | null;
   online: boolean;
   onClose: () => void;
   onSend: (kind: FeedbackKind, body: string) => Promise<'ok' | 'slow_down' | 'error'>;
+  onSent: () => void;
 }) {
   const [kind, setKind] = useState<FeedbackKind>('idea');
   const [body, setBody] = useState('');
@@ -767,8 +802,10 @@ function FeedbackSheet({
     const r = await onSend(kind, body.trim()).catch(() => 'error' as const);
     setBusy(false);
     if (r === 'ok') {
-      play('chime'); // only once the server says it's in (Kenshin 3.4)
-      setSent(true);
+      // Only once the server says it's in (Kenshin 3.4): whoosh as the plane takes off, chime as it lands.
+      play('whoosh');
+      play('chime', 2.4);
+      onSent();
     } else if (r === 'slow_down') {
       setNote({ text: 'You’ve sent a few already. Please try again in an hour.', bad: true });
     } else {

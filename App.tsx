@@ -62,7 +62,7 @@ import { LogScreen } from './src/LogScreen';
 import { MAX_TRIES, clearPin, loadPin, maskEmail, pinSupported, tryPin, weakPin } from './src/pin';
 import { SettingsScreen } from './src/SettingsScreen';
 import { AppearanceContext, Theme, cardRadius, useTheme } from './src/theme';
-import { Button, PigLoader, Sheet, SyncState, T } from './src/ui';
+import { BrandLoader, Button, Sheet, SyncState, T } from './src/ui';
 
 type Tab = 'log' | 'history' | 'settings';
 const TABS: { key: Tab; label: string }[] = [
@@ -862,11 +862,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
           onSyncPress={() => {}} onAdd={() => {}} onUndo={() => {}} onEdit={() => {}} onAddLabel={() => {}} />
       );
     } else {
-      body = (
-        <View style={styles.center}>
-          <PigLoader t={t} label="Opening Gastos…" />
-        </View>
-      );
+      body = <BrandLoader t={t} />;
     }
   } else if (screen === 'signin') {
     body = (
@@ -1111,6 +1107,8 @@ function Nav({ t, tab, onTab }: { t: Theme; tab: Tab; onTab: (t: Tab) => void })
         style={[
           styles.nav,
           { backgroundColor: t.nav, borderColor: t.navBorder },
+          // Soft glow along the top edge, so the glass reads as floating in dark mode (Joe, v3 test round).
+          { borderTopColor: t.dark ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.9)' },
           Platform.OS === 'web' ? ({ backdropFilter: 'blur(13px) saturate(140%)', WebkitBackdropFilter: 'blur(13px) saturate(140%)' } as any) : null,
           !t.dark && styles.navShadow,
         ]}

@@ -3,11 +3,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Expense, MONTHS, PayLabel, Rates, Settings, formatMoney, localDate, newId, parseAmount, sumIn } from './data';
 import { Draft, EntryForm, EntryFormHandle, emptyDraft } from './EntryForm';
-import { EntryPreview, ExpenseRow } from './ExpenseRow';
+import { CoinRain } from './celebrate';
+import { EntryPreview } from './ExpenseRow';
 import { play } from './fx';
 import { ConfirmDialog, CountUp, PigSlot, Skeleton } from './motion';
 import { Theme, radius } from './theme';
-import { Button, Card, GlassHero, SyncBadge, SyncState, T } from './ui';
+import { Button, GlassHero, SyncBadge, SyncState, T } from './ui';
 
 type Props = {
   t: Theme;
@@ -25,7 +26,7 @@ type Props = {
   onAddLabel: (l: PayLabel) => void;
 };
 
-export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading, onSyncPress, onAdd, onUndo, onEdit, onAddLabel }: Props) {
+export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading, onSyncPress, onAdd, onUndo, onAddLabel }: Props) {
   const cur = settings.currency;
   // Remember the last "Paid with", so her usual wallet is one tap away (or zero).
   const last = useMemo(() => {
@@ -38,6 +39,7 @@ export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading
   const [saved, setSaved] = useState<Expense | null>(null);
   const [asking, setAsking] = useState<Expense | null>(null);
   const [drop, setDrop] = useState(0);
+  const [rain, setRain] = useState(0); // tap the pig: the coin shower
   const form = useRef<EntryFormHandle>(null);
 
   const now = new Date();
@@ -46,12 +48,6 @@ export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading
   const spent = sumIn(month.filter((e) => e.kind === 'expense'), cur, rates).cents;
   const income = sumIn(month.filter((e) => e.kind === 'income'), cur, rates).cents;
   const left = income - spent;
-
-  // Recent follows the Expense/Income switch (Joe v3).
-  const recent = useMemo(
-    () => expenses.filter((e) => e.kind === draft.kind).sort((a, b) => b.createdAt - a.createdAt).slice(0, 5),
-    [expenses, draft.kind],
-  );
 
   useEffect(() => {
     if (!saved) return;
@@ -160,7 +156,16 @@ export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading
 
         {/* Pig B beside Save (Joe v3) */}
         <View style={styles.saveRow}>
-          <PigSlot t={t} drop={drop} label={coin} />
+          <PigSlot
+            t={t}
+            drop={drop}
+            label={coin}
+            onTap={() => {
+              if (rain) return; // one shower at a time
+              play('coins');
+              setRain((n) => n + 1);
+            }}
+          />
           <View style={{ flex: 1 }}>
             <Button label={cta} onPress={ask} t={t} />
           </View>
@@ -187,41 +192,9 @@ export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading
         )}
 
 
-        <T size={18} w="bold" color={t.text} style={{ marginTop: 24, marginBottom: 8 }} accessibilityRole="header">
-          {draft.kind === 'income' ? 'Recent income' : 'Recent'}
-        </T>
-        {loading ? (
-          <Card t={t}>
-            {[0, 1].map((i) => (
-              <View key={i} style={[styles.skRow, i > 0 && { borderTopWidth: 1, borderTopColor: t.border }]}>
-                <Skeleton t={t} w={36} h={36} r={10} />
-                <View style={{ flex: 1, gap: 7 }}>
-                  <Skeleton t={t} w={90} h={14} />
-                  <Skeleton t={t} w={140} h={11} />
-                </View>
-                <Skeleton t={t} w={70} h={14} />
-              </View>
-            ))}
-          </Card>
-        ) : recent.length === 0 ? (
-          <T size={15} color={t.muted} style={{ paddingVertical: 8 }}>
-            {draft.kind === 'income' ? 'No income yet. Anything you log as Income shows up here.' : 'Nothing yet. Your first expense will show up here.'}
-          </T>
-        ) : (
-          <>
-            <Card t={t}>
-              {recent.map((e, i) => (
-                <ExpenseRow key={e.id} e={e} t={t} currency={cur} rates={rates} first={i === 0} onPress={onEdit} />
-              ))}
-            </Card>
-            {draft.kind === 'income' && (
-              <T size={13} color={t.muted} style={{ marginTop: 10, textAlign: 'center' }}>
-                Showing income only. Switch to Expense to see spending.
-              </T>
-            )}
-          </>
-        )}
       </ScrollView>
+
+      <CoinRain run={rain} onDone={() => setRain(0)} />
 
       <ConfirmDialog
         visible={!!asking}
@@ -244,7 +217,6 @@ const styles = StyleSheet.create({
   sub: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 6, flexWrap: 'wrap' },
   pair: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   saveRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
-  skRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, minHeight: 56 },
   // Undo sits right under Save, where her thumb already is, and covers nothing (Erina build review).
   toast: { marginTop: 10, borderRadius: radius, borderWidth: 1, padding: 14, flexDirection: 'row', alignItems: 'center' },
 });

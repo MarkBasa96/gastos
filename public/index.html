@@ -15,17 +15,21 @@
     <meta name="apple-mobile-web-app-title" content="Gastos" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <!-- Splash rule (Erina v2 §5): the resting background, so opening has no colour flash -->
+    <!-- Gastos has its own light and dark. Without this, Chrome's auto dark mode repaints the page:
+         light turned dark and the MPIN dots went grey on Joe's phone (v3 test, 2026-09-28). -->
+    <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#F6F7F6" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#111513" media="(prefers-color-scheme: dark)" />
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
+      :root {
+        color-scheme: light dark;
+      }
+      /* White before the app draws: continues Android's white splash into the logo screen (v3). */
       html,
       body {
         height: 100%;
-        background-color: #F6F7F6;
-      }
-      @media (prefers-color-scheme: dark) {
-        html, body { background-color: #111513; }
+        background-color: #FFFFFF;
       }
       body {
         overflow: hidden;
