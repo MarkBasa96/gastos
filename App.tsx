@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, AppState, Easing, Platform, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   clearAccountPinState,
@@ -181,6 +181,12 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
   const [online, setOnline] = useState(Platform.OS !== 'web' || navigator.onLine !== false);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [switchAsk, setSwitchAsk] = useState(false);
+  // Appearance circle without View Transitions (iPhones before iOS 18): a circle in the new colour grows
+  // from the tapped icon, the theme switches under it, then it fades (Joe, v3 test round 2).
+  const [reveal, setReveal] = useState<{ x: number; y: number; end: number; color: string } | null>(null);
+  const revealScale = useRef(new Animated.Value(0)).current;
+  const revealFade = useRef(new Animated.Value(1)).current;
+  const systemScheme = useColorScheme();
 
   // Refs so the sync loop always sees the latest data without re-subscribing.
   const expensesRef = useRef<Expense[]>([]);
@@ -466,13 +472,25 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
     (a: Settings['appearance'], at?: { x: number; y: number }) => {
       const apply = () => setSettings({ ...settingsRef.current, appearance: a });
       const doc: any = Platform.OS === 'web' && typeof document !== 'undefined' ? document : null;
-      if (!doc?.startViewTransition || prefersReducedMotion() || !at) {
+      if (prefersReducedMotion() || !at || !doc) {
         apply();
         return;
       }
-      const x = at.x;
-      const y = at.y;
+      const x = at.x || window.innerWidth - 60;
+      const y = at.y || window.innerHeight / 2;
       const end = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+      if (!doc.startViewTransition) {
+        const dark = a === 'dark' || (a === 'system' && systemScheme === 'dark');
+        const native = false;
+        revealScale.setValue(0);
+        revealFade.setValue(1);
+        setReveal({ x, y, end, color: dark ? '#111513' : '#F6F7F6' });
+        Animated.timing(revealScale, { toValue: 1, duration: 520, easing: Easing.bezier(0.4, 0, 0.2, 1), useNativeDriver: native }).start(() => {
+          apply();
+          Animated.timing(revealFade, { toValue: 0, duration: 220, delay: 60, useNativeDriver: native }).start(() => setReveal(null));
+        });
+        return;
+      }
       // react-dom ships with the web build (react-native-web renders through it); no new package needed.
       const { flushSync } = require('react-dom') as { flushSync: (fn: () => void) => void };
       const vt = doc.startViewTransition(() => flushSync(apply));
@@ -485,7 +503,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         )
         .catch(() => {});
     },
-    [setSettings],
+    [setSettings, systemScheme, revealScale, revealFade],
   );
 
   /** Wallet rename: server first (one column), then this phone's copies without marking them to upload (Kenshin M11). */
@@ -1095,6 +1113,22 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         />
         <Button label="Cancel" kind="text" onPress={() => setSwitchAsk(false)} t={t} />
       </Sheet>
+      {reveal && (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: 'absolute',
+            left: reveal.x - reveal.end,
+            top: reveal.y - reveal.end,
+            width: reveal.end * 2,
+            height: reveal.end * 2,
+            borderRadius: reveal.end,
+            backgroundColor: reveal.color,
+            opacity: revealFade,
+            transform: [{ scale: revealScale }],
+          }}
+        />
+      )}
       <StatusBar style={t.dark || (session && pinSet && !unlocked) ? 'light' : 'dark'} />
     </SafeAreaView>
   );

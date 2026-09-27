@@ -50,6 +50,7 @@ import { Theme } from './theme';
 import { Button, Card, Field, IconTile, Label, Row, Segmented, Sheet, SyncState, T } from './ui';
 
 const LAST_BACKUP_KEY = 'gastos.v1.lastBackup';
+const TEST_BUILD = process.env.EXPO_PUBLIC_BUILD ?? '';
 
 export type FeedbackKind = 'broken' | 'idea' | 'other';
 
@@ -145,6 +146,8 @@ export function SettingsScreen({
   const [walletSheet, setWalletSheet] = useState(false);
   const [feedbackSheet, setFeedbackSheet] = useState(false);
   const [savedTick, setSavedTick] = useState(0);
+  const [diag, setDiag] = useState<string[]>([]);
+  const note = (s: string) => TEST_BUILD && setDiag((d) => (d.includes(s) ? d : [...d, s]));
   const [celebrate, setCelebrate] = useState(false);
   const save = (s: Settings) => {
     onSettings(s);
@@ -397,13 +400,26 @@ export function SettingsScreen({
               type: 'file',
               'aria-label': 'Restore from a file',
               title: 'Restore from a file',
+              onTouchStart: () => note('touch'),
+              onPointerDown: () => note('press'),
               onClick: (e: any) => {
+                note('click');
                 e.currentTarget.value = ''; // the same file twice in a row still fires onChange
+                if (TEST_BUILD) {
+                  // The picker opening takes the page out of focus; if this fires, Android showed it.
+                  const seen = () => note('picker');
+                  window.addEventListener('blur', seen, { once: true });
+                  document.addEventListener('visibilitychange', seen, { once: true });
+                }
               },
               onChange: (e: any) => {
                 const file: File | undefined = e.currentTarget.files?.[0];
+                note(file ? `file (${file.type || 'no type'}, ${file.size} bytes)` : 'no file');
                 if (!file) return;
-                file.text().then(openRestore, () => setMsg({ text: 'Could not read that file.', bad: true }));
+                file.text().then(openRestore, (err: unknown) => {
+                  note('read failed: ' + String(err).slice(0, 60));
+                  setMsg({ text: 'Could not read that file.', bad: true });
+                });
               },
               style: { position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', fontSize: 0 },
             })}
@@ -415,6 +431,11 @@ export function SettingsScreen({
           </Row>
         )}
       </Card>
+      {TEST_BUILD ? (
+        <T size={12} color={t.warning} style={{ marginTop: 6 }}>
+          Test readout, Restore: {diag.length ? diag.join(' → ') : 'not tapped yet'}
+        </T>
+      ) : null}
       {msg && <T size={14} color={msg.bad ? t.danger : t.text} style={{ marginTop: 10 }} accessibilityLiveRegion="polite">{msg.text}</T>}
 
       {account.signedIn && (
@@ -447,7 +468,7 @@ export function SettingsScreen({
           </T>
         </>
       )}
-      <T size={13} w="medium" color={t.muted} style={{ textAlign: 'center', marginTop: 12 }}>Gastos 3.0</T>
+      <T size={13} w="medium" color={t.muted} style={{ textAlign: 'center', marginTop: 12 }}>Gastos 3.0{TEST_BUILD ? ` · test build ${TEST_BUILD}` : ''}</T>
       <T size={12} color={t.muted} style={{ textAlign: 'center', marginTop: 2 }}>Made by Joemark Basa</T>
 
       {/* ---- sheets ---- */}
