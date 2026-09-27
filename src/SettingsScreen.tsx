@@ -52,6 +52,30 @@ import { Button, Card, Field, IconTile, Label, Row, Segmented, Sheet, SyncState,
 const LAST_BACKUP_KEY = 'gastos.v1.lastBackup';
 const TEST_BUILD = process.env.EXPO_PUBLIC_BUILD ?? '';
 
+/** Test builds: where is this running? A home-screen app, a browser tab, or an app's built-in browser. */
+function runtimeInfo(): string {
+  if (Platform.OS !== 'web' || typeof navigator === 'undefined') return '';
+  const ua = navigator.userAgent;
+  const engine = /; wv\)/.test(ua)
+    ? 'in-app browser (WebView)'
+    : /SamsungBrowser\/(\d+)/.test(ua)
+      ? 'Samsung Internet ' + RegExp.$1
+      : /EdgA\/(\d+)/.test(ua)
+        ? 'Edge ' + RegExp.$1
+        : /Firefox\/(\d+)/.test(ua)
+          ? 'Firefox ' + RegExp.$1
+          : /CriOS\/(\d+)/.test(ua)
+            ? 'Chrome iOS ' + RegExp.$1
+            : /Chrome\/(\d+)/.test(ua)
+              ? 'Chrome ' + RegExp.$1
+              : /Safari/.test(ua)
+                ? 'Safari'
+                : 'unknown';
+  const mode = typeof matchMedia !== 'undefined' && matchMedia('(display-mode: standalone)').matches ? 'home-screen app' : 'browser tab';
+  const android = /Android (\d+)/.test(ua) ? 'Android ' + RegExp.$1 : /iPhone OS (\d+)/.test(ua) ? 'iOS ' + RegExp.$1 : '';
+  return [engine, mode, android].filter(Boolean).join(', ');
+}
+
 export type FeedbackKind = 'broken' | 'idea' | 'other';
 
 export type Account = {
@@ -433,7 +457,7 @@ export function SettingsScreen({
       </Card>
       {TEST_BUILD ? (
         <T size={12} color={t.warning} style={{ marginTop: 6 }}>
-          Test readout, Restore: {diag.length ? diag.join(' → ') : 'not tapped yet'}
+          Test readout, Restore: {diag.length ? diag.join(' → ') : 'not tapped yet'} · {runtimeInfo()}
         </T>
       ) : null}
       {msg && <T size={14} color={msg.bad ? t.danger : t.text} style={{ marginTop: 10 }} accessibilityLiveRegion="polite">{msg.text}</T>}

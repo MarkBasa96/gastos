@@ -2,8 +2,8 @@ import { useFonts } from 'expo-font';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Session } from '@supabase/supabase-js';
 import { StatusBar } from 'expo-status-bar';
-import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, AppState, Easing, Platform, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
+import { ReactNode, createElement, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, Platform, Pressable, StyleSheet, View, useColorScheme } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   clearAccountPinState,
@@ -183,9 +183,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
   const [switchAsk, setSwitchAsk] = useState(false);
   // Appearance circle without View Transitions (iPhones before iOS 18): a circle in the new colour grows
   // from the tapped icon, the theme switches under it, then it fades (Joe, v3 test round 2).
-  const [reveal, setReveal] = useState<{ x: number; y: number; end: number; color: string } | null>(null);
-  const revealScale = useRef(new Animated.Value(0)).current;
-  const revealFade = useRef(new Animated.Value(1)).current;
+  const [reveal, setReveal] = useState<{ x: number; y: number; end: number; color: string; key: number } | null>(null);
   const systemScheme = useColorScheme();
 
   // Refs so the sync loop always sees the latest data without re-subscribing.
@@ -480,15 +478,10 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
       const y = at.y || window.innerHeight / 2;
       const end = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
       if (!doc.startViewTransition) {
-        const dark = a === 'dark' || (a === 'system' && systemScheme === 'dark');
-        const native = false;
-        revealScale.setValue(0);
-        revealFade.setValue(1);
-        setReveal({ x, y, end, color: dark ? '#111513' : '#F6F7F6' });
-        Animated.timing(revealScale, { toValue: 1, duration: 520, easing: Easing.bezier(0.4, 0, 0.2, 1), useNativeDriver: native }).start(() => {
-          apply();
-          Animated.timing(revealFade, { toValue: 0, duration: 220, delay: 60, useNativeDriver: native }).start(() => setReveal(null));
-        });
+        // The colour we're leaving: the veil starts as the old screen's background.
+        const wasDark = t.dark;
+        setReveal({ x, y, end, color: wasDark ? '#111513' : '#F6F7F6', key: Date.now() });
+        apply();
         return;
       }
       // react-dom ships with the web build (react-native-web renders through it); no new package needed.
@@ -503,7 +496,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         )
         .catch(() => {});
     },
-    [setSettings, systemScheme, revealScale, revealFade],
+    [setSettings, t.dark],
   );
 
   /** Wallet rename: server first (one column), then this phone's copies without marking them to upload (Kenshin M11). */
@@ -1113,22 +1106,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         />
         <Button label="Cancel" kind="text" onPress={() => setSwitchAsk(false)} t={t} />
       </Sheet>
-      {reveal && (
-        <Animated.View
-          pointerEvents="none"
-          style={{
-            position: 'absolute',
-            left: reveal.x - reveal.end,
-            top: reveal.y - reveal.end,
-            width: reveal.end * 2,
-            height: reveal.end * 2,
-            borderRadius: reveal.end,
-            backgroundColor: reveal.color,
-            opacity: revealFade,
-            transform: [{ scale: revealScale }],
-          }}
-        />
-      )}
+      {reveal && <RevealVeil key={reveal.key} x={reveal.x} y={reveal.y} end={reveal.end} color={reveal.color} onDone={() => setReveal(null)} />}
       <StatusBar style={t.dark || (session && pinSet && !unlocked) ? 'light' : 'dark'} />
     </SafeAreaView>
   );
@@ -1166,6 +1144,37 @@ function Nav({ t, tab, onTab }: { t: Theme; tab: Tab; onTab: (t: Tab) => void })
       </View>
     </View>
   );
+}
+
+/** Old-colour veil with a circular hole growing from (x, y): the new screen shows through the hole. Web only. */
+function RevealVeil({ x, y, end, color, onDone }: { x: number; y: number; end: number; color: string; onDone: () => void }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const t0 = performance.now();
+    const dur = 560;
+    let raf = 0;
+    const frame = (now: number) => {
+      const p = Math.min((now - t0) / dur, 1);
+      const e = 1 - Math.pow(1 - p, 3); // ease-out
+      const r = e * end;
+      const el = ref.current;
+      if (el) {
+        const mask = `radial-gradient(circle at ${x}px ${y}px, transparent ${r}px, #000 ${r + 1.5}px)`;
+        el.style.webkitMaskImage = mask;
+        el.style.maskImage = mask;
+        el.style.opacity = String(0.92 * (1 - e * e)); // fades while it opens, so text outside comes in too
+      }
+      if (p < 1) raf = requestAnimationFrame(frame);
+      else onDone();
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return createElement('div', {
+    ref,
+    'aria-hidden': true,
+    style: { position: 'fixed', inset: 0, backgroundColor: color, opacity: 0.92, pointerEvents: 'none', zIndex: 9999 },
+  });
 }
 
 const styles = StyleSheet.create({
