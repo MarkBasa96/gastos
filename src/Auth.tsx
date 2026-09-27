@@ -329,7 +329,8 @@ export function Lock({
   /** e.g. "The same MPIN you use on your other phone." */
   hint?: string;
 }) {
-  const [pad, setPad] = useState(false);
+  // A phone new to the account goes straight to the keypad with the "same MPIN" line (approved pin-new, Erina build review).
+  const [pad, setPad] = useState(!!hint);
   const [pin, setPin] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);

@@ -52,6 +52,26 @@ export function ExpenseRow({
   );
 }
 
+/** One entry, as shown in a pop-up: exactly what's about to be saved or deleted (same row for both, Erina). */
+export function EntryPreview({ e, t, currency, rates }: { e: Expense; t: Theme; currency: string; rates: Rates | null }) {
+  const m = money(e, currency, rates);
+  const income = e.kind === 'income';
+  const detail = [e.note, e.paidWith || (e.method === 'card' ? 'Card' : 'Cash')].filter(Boolean).join(' · ');
+  return (
+    <View style={{ borderRadius: 20, borderWidth: 1, borderColor: t.border, backgroundColor: t.bg, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 }}>
+      <IconTile icon={categoryIcon(e.category)} t={t} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <T size={15} w="semibold" color={t.text} numberOfLines={1}>{e.category}</T>
+        <T size={13} color={t.muted} numberOfLines={1}>{detail}</T>
+      </View>
+      <T size={15} w="semibold" color={income ? t.accent : t.text} num>
+        {income ? '+' : '−'}
+        {m.main}
+      </T>
+    </View>
+  );
+}
+
 export function EditSheet({
   e,
   t,
@@ -137,19 +157,20 @@ export function EditSheet({
         visible={ask === 'save'}
         t={t}
         title="Save changes?"
-        body={pending ? `${pending.category} · ${formatMoney(pending.cents, pending.currency)}` : undefined}
         action="Save it"
         onCancel={() => setAsk(null)}
         onConfirm={() => {
           setAsk(null);
           if (pending) onSave(pending);
         }}
-      />
+      >
+        {pending && <EntryPreview e={pending} t={t} currency={currency} rates={null} />}
+      </ConfirmDialog>
       <ConfirmDialog
         visible={ask === 'delete'}
         t={t}
         title={e.kind === 'income' ? 'Delete this income?' : 'Delete this expense?'}
-        body={`${e.category} · ${formatMoney(e.cents, e.currency)}. It's removed from all your phones.`}
+        body="It’s removed from all your phones."
         action="Delete"
         danger
         onCancel={() => setAsk(null)}
@@ -158,7 +179,9 @@ export function EditSheet({
           play('thud');
           onDelete(e.id);
         }}
-      />
+      >
+        <EntryPreview e={e} t={t} currency={currency} rates={null} />
+      </ConfirmDialog>
     </Sheet>
   );
 }

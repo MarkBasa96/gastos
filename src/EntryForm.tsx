@@ -199,7 +199,8 @@ export const EntryForm = forwardRef<
               ]}
             >
               <Icon size={20} color={on ? t.accent : t.muted} strokeWidth={1.8} />
-              <T size={13} w={on ? 'semibold' : 'medium'} color={t.text} numberOfLines={1}>
+              {/* Long names ("Other income") drop to 12 so they fit a quarter-width tile (Erina) */}
+              <T size={c.length > 10 ? 12 : 13} w={on ? 'semibold' : 'medium'} color={t.text} numberOfLines={1}>
                 {c}
               </T>
             </Pressable>

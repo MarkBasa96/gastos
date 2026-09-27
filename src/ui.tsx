@@ -93,8 +93,11 @@ export function Button({
   style?: StyleProp<ViewStyle>;
 }) {
   const solid = kind === 'primary' || kind === 'solidDanger';
-  const bg = kind === 'primary' ? t.accent : kind === 'solidDanger' ? t.danger : kind === 'outline' ? t.surface : 'transparent';
-  const fg = kind === 'primary' ? t.accentText : kind === 'solidDanger' ? t.bg : kind === 'danger' ? t.danger : kind === 'text' ? t.muted : t.text;
+  // Solid red must read as dangerous in dark too: t.danger is a pale pink there (for text), so the fill
+  // uses a deeper red with white text (5.2:1). Erina build review.
+  const dangerFill = t.dark ? '#C9302C' : t.danger;
+  const bg = kind === 'primary' ? t.accent : kind === 'solidDanger' ? dangerFill : kind === 'outline' ? t.surface : 'transparent';
+  const fg = kind === 'primary' ? t.accentText : kind === 'solidDanger' ? '#FFFFFF' : kind === 'danger' ? t.danger : kind === 'text' ? t.muted : t.text;
   return (
     <Pressable
       onPress={onPress}
@@ -207,8 +210,16 @@ export function Segmented<V extends string>({
               webFocus(t, s.focused),
             ]}
           >
-            {Icon ? (
+            {Icon && iconOnly ? (
               <Icon size={18} color={on ? t.accent : t.muted} strokeWidth={1.8} />
+            ) : Icon ? (
+              // Icon + label: the icon says "this opens something else" (History's Dates, Erina).
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <Icon size={15} color={on ? t.accent : t.muted} strokeWidth={1.8} />
+                <T size={small ? 14 : 15} w={on ? 'semibold' : 'medium'} color={on ? t.text : t.muted}>
+                  {o.label}
+                </T>
+              </View>
             ) : (
               <T size={small ? 14 : 15} w={on ? 'semibold' : 'medium'} color={on ? t.text : t.muted}>
                 {o.label}

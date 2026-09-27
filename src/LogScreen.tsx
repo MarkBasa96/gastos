@@ -3,12 +3,11 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Expense, MONTHS, PayLabel, Rates, Settings, formatMoney, localDate, newId, parseAmount, sumIn } from './data';
 import { Draft, EntryForm, EntryFormHandle, emptyDraft } from './EntryForm';
-import { ExpenseRow, money } from './ExpenseRow';
+import { EntryPreview, ExpenseRow } from './ExpenseRow';
 import { play } from './fx';
-import { categoryIcon } from './icons';
 import { ConfirmDialog, CountUp, PigSlot, Skeleton } from './motion';
 import { Theme, radius } from './theme';
-import { Button, Card, GlassHero, IconTile, SyncBadge, SyncState, T } from './ui';
+import { Button, Card, GlassHero, SyncBadge, SyncState, T } from './ui';
 
 type Props = {
   t: Theme;
@@ -166,6 +165,27 @@ export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading
             <Button label={cta} onPress={ask} t={t} />
           </View>
         </View>
+        {saved && (
+          <View style={[styles.toast, { backgroundColor: t.accentSoft, borderColor: t.accent }]} accessibilityLiveRegion="polite">
+            <T size={15} color={t.text} style={{ flex: 1 }}>
+              Saved {formatMoney(saved.cents, saved.currency)} {saved.kind === 'income' ? 'from' : 'for'} {saved.category}.
+            </T>
+            <T
+              size={15}
+              w="bold"
+              color={t.accent}
+              onPress={() => {
+                onUndo(saved.id);
+                setSaved(null);
+              }}
+              accessibilityRole="button"
+              style={{ paddingLeft: 12, paddingVertical: 4 }}
+            >
+              Undo
+            </T>
+          </View>
+        )}
+
 
         <T size={18} w="bold" color={t.text} style={{ marginTop: 24, marginBottom: 8 }} accessibilityRole="header">
           {draft.kind === 'income' ? 'Recent income' : 'Recent'}
@@ -203,27 +223,6 @@ export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading
         )}
       </ScrollView>
 
-      {saved && (
-        <View style={[styles.toast, { backgroundColor: t.accentSoft }]} accessibilityLiveRegion="polite">
-          <T size={15} color={t.text} style={{ flex: 1 }}>
-            Saved {formatMoney(saved.cents, saved.currency)} {saved.kind === 'income' ? 'from' : 'for'} {saved.category}.
-          </T>
-          <T
-            size={15}
-            w="bold"
-            color={t.accent}
-            onPress={() => {
-              onUndo(saved.id);
-              setSaved(null);
-            }}
-            accessibilityRole="button"
-            style={{ paddingLeft: 12, paddingVertical: 4 }}
-          >
-            Undo
-          </T>
-        </View>
-      )}
-
       <ConfirmDialog
         visible={!!asking}
         t={t}
@@ -232,31 +231,9 @@ export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading
         onCancel={() => setAsking(null)}
         onConfirm={confirm}
       >
-        {asking && <Preview e={asking} t={t} currency={cur} rates={rates} />}
+        {asking && <EntryPreview e={asking} t={t} currency={cur} rates={rates} />}
       </ConfirmDialog>
     </View>
-  );
-}
-
-/** One row in the pop-up: exactly what's about to be saved. No date: it's the one she just picked. */
-function Preview({ e, t, currency, rates }: { e: Expense; t: Theme; currency: string; rates: Rates | null }) {
-  const m = money(e, currency, rates);
-  const income = e.kind === 'income';
-  const detail = [e.note, e.paidWith || 'Cash'].filter(Boolean).join(' · ');
-  return (
-    <Card t={t} style={{ backgroundColor: t.bg }}>
-      <View style={styles.preview}>
-        <IconTile icon={categoryIcon(e.category)} t={t} />
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <T size={15} w="semibold" color={t.text} numberOfLines={1}>{e.category}</T>
-          <T size={13} color={t.muted} numberOfLines={1}>{detail}</T>
-        </View>
-        <T size={15} w="semibold" color={income ? t.accent : t.text} num>
-          {income ? '+' : '−'}
-          {m.main}
-        </T>
-      </View>
-    </Card>
   );
 }
 
@@ -268,7 +245,6 @@ const styles = StyleSheet.create({
   pair: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   saveRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 },
   skRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12, minHeight: 56 },
-  preview: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
-  // Floats above the nav (60 tall + 12 gap) while the Undo window is open.
-  toast: { position: 'absolute', left: 16, right: 16, bottom: 84, borderRadius: radius, padding: 14, flexDirection: 'row', alignItems: 'center', maxWidth: 528, alignSelf: 'center' },
+  // Undo sits right under Save, where her thumb already is, and covers nothing (Erina build review).
+  toast: { marginTop: 10, borderRadius: radius, borderWidth: 1, padding: 14, flexDirection: 'row', alignItems: 'center' },
 });

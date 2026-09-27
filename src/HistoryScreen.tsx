@@ -182,7 +182,7 @@ export function HistoryScreen({
               { value: 'week', label: 'Week' },
               { value: 'month', label: 'Month' },
               { value: 'year', label: 'Year' },
-              { value: 'dates', label: 'Dates' },
+              { value: 'dates', label: 'Dates', icon: CalendarRange },
             ]}
           />
           {period === 'dates' && custom ? (
