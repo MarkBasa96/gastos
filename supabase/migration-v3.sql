@@ -230,7 +230,7 @@ create table if not exists private.feedback (
   kind        text not null check (kind in ('broken', 'idea', 'other')),
   body        text not null check (char_length(body) between 1 and 2000
                                    and body !~ '[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]'
-                                   and body !~ '[‪-‮⁦-⁩]'),
+                                   and body !~ ('[' || chr(8234) || '-' || chr(8238) || chr(8294) || '-' || chr(8297) || ']')),  -- no bidi overrides (U+202A-202E, U+2066-2069), written as codes so no editor can strip them (audit R-1)
   app_version text not null default '' check (char_length(app_version) <= 20 and app_version ~ '^[0-9A-Za-z.+-]*$'),
   emailed     boolean not null default false,
   created_at  timestamptz not null default now()
