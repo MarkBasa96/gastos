@@ -73,6 +73,20 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   document.head.appendChild(css);
 }
 
+// Offline cold start (Joe v3): the service worker keeps a copy of the app's own files, never data.
+// Built app only, over https (or localhost for the test harness), never in dev (Kenshin v3 L8).
+if (
+  Platform.OS === 'web' &&
+  !__DEV__ &&
+  typeof navigator !== 'undefined' &&
+  'serviceWorker' in navigator &&
+  (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')
+) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((e) => console.warn('Gastos: offline copy not set up', e));
+  });
+}
+
 export default function App() {
   const [appearance, setAppearance] = useState<Settings['appearance']>('system');
   return (
