@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// v2 (legacy) per-phone MPIN. v3 moved the MPIN to the account (accountPin.ts); this record is read once
+// to migrate it (Kenshin v3 M4), then deleted.
 // MPIN app lock (Kenshin v2 review, Part 1). It stops someone holding her unlocked phone from browsing
 // Gastos; it does not stop devtools. Web only for now: WebCrypto PBKDF2. Native builds should swap this
 // module for expo-secure-store behind the same functions.
@@ -26,14 +28,14 @@ export function pinSupported(): boolean {
   return typeof crypto !== 'undefined' && !!crypto.subtle && typeof crypto.getRandomValues === 'function';
 }
 
-async function derive(pin: string, salt: Uint8Array, iter: number): Promise<Uint8Array> {
+export async function derivePin(pin: string, salt: Uint8Array, iter: number): Promise<Uint8Array> {
   const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits']);
   return new Uint8Array(
     await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: salt as BufferSource, iterations: iter }, base, 256),
   );
 }
 
-function equal(a: Uint8Array, b: Uint8Array): boolean {
+export function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
   let d = 0;
   for (let i = 0; i < a.length; i++) d |= a[i] ^ b[i];
@@ -74,7 +76,7 @@ export function weakPin(pin: string): boolean {
 
 export async function setPin(pin: string, uid: string, email: string): Promise<void> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
-  const hash = await derive(pin, salt, ITERATIONS);
+  const hash = await derivePin(pin, salt, ITERATIONS);
   await savePin({ v: 1, uid, email, salt: b64e(salt), iter: ITERATIONS, hash: b64e(hash), fails: 0, lockedOut: false });
 }
 
@@ -84,7 +86,7 @@ export async function tryPin(pin: string, lastUser: string | null): Promise<'ok'
   if (r === 'none' || r === 'corrupt' || r.lockedOut) return 'locked';
   r.fails += 1;
   await savePin(r);
-  const ok = equal(await derive(pin, b64d(r.salt), r.iter), b64d(r.hash));
+  const ok = equalBytes(await derivePin(pin, b64d(r.salt), r.iter), b64d(r.hash));
   if (ok) {
     r.fails = 0;
     await savePin(r);

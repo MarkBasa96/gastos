@@ -11,6 +11,14 @@ const LOGO_WHITE = require('../assets/brand/logo-white.png');
 const ICON = require('../assets/brand/icon-1024.png');
 const LOGO_RATIO = 1983 / 793;
 
+/** 'offline' = this phone knows an MPIN exists but can't check it without internet. */
+export type PinTry = 'ok' | 'locked' | 'offline' | { left: number };
+
+function wrongMsg(left: number): string {
+  return left <= 1 ? 'Wrong MPIN. 1 try left, then you’ll need the email code.' : `Wrong MPIN. ${left} tries left.`;
+}
+
+const OFFLINE_MSG = 'No internet. Connect once and try again: this phone needs to check your MPIN online.';
 const BRAND_BG = '#0F2E20';
 const ON_BRAND = '#EDF1EE';
 
@@ -312,14 +320,12 @@ export function Lock({
   onTry,
   onForgot,
   onSwitch,
-  triesLeft,
   hint,
 }: {
   maskedEmail: string;
-  onTry: (pin: string) => Promise<'ok' | 'wrong' | 'locked'>;
+  onTry: (pin: string) => Promise<PinTry>;
   onForgot: () => void;
   onSwitch: () => void;
-  triesLeft: number;
   /** e.g. "The same MPIN you use on your other phone." */
   hint?: string;
 }) {
@@ -340,10 +346,13 @@ export function Lock({
     setBusy(true);
     const r = await onTry(next);
     checking.current = false;
-    if (r === 'wrong') {
+    if (typeof r === 'object') {
       setShake(true);
       setTimeout(() => setShake(false), 120);
-      setMsg(triesLeft - 1 <= 1 ? 'Wrong MPIN. 1 try left, then you’ll need the email code.' : `Wrong MPIN. ${triesLeft - 1} tries left.`);
+      setMsg(wrongMsg(r.left));
+      setPin('');
+    } else if (r === 'offline') {
+      setMsg(OFFLINE_MSG);
       setPin('');
     }
     setBusy(false);
@@ -407,15 +416,13 @@ export function Lock({
 export function VerifyPin({
   title,
   intro,
-  triesLeft,
   onTry,
   onCancel,
   onForgot,
 }: {
   title: string;
   intro: string;
-  triesLeft: number;
-  onTry: (pin: string) => Promise<'ok' | 'wrong' | 'locked'>;
+  onTry: (pin: string) => Promise<PinTry>;
   onCancel: () => void;
   onForgot: () => void;
 }) {
@@ -435,10 +442,13 @@ export function VerifyPin({
     setBusy(true);
     const r = await onTry(next);
     checking.current = false;
-    if (r === 'wrong') {
+    if (typeof r === 'object') {
       setShake(true);
       setTimeout(() => setShake(false), 120);
-      setMsg(triesLeft - 1 <= 1 ? 'Wrong MPIN. 1 try left, then you’ll need the email code.' : `Wrong MPIN. ${triesLeft - 1} tries left.`);
+      setMsg(wrongMsg(r.left));
+      setPin('');
+    } else if (r === 'offline') {
+      setMsg(OFFLINE_MSG);
       setPin('');
     }
     setBusy(false);
@@ -483,8 +493,10 @@ export function SetPin({
 }: {
   t: Theme;
   isWeak: (p: string) => boolean;
-  onDone: (pin: string) => Promise<void>;
-  onSkip: () => void;
+  /** Resolves to an error message to show, or null when done. */
+  onDone: (pin: string) => Promise<string | null>;
+  /** Missing = no way out (resetting a forgotten MPIN must end with a new one: Kenshin H2). */
+  onSkip?: () => void;
   skipLabel?: string;
 }) {
   const [first, setFirst] = useState<string | null>(null);
@@ -515,7 +527,13 @@ export function SetPin({
       return;
     }
     setBusy(true);
-    await onDone(next);
+    const err = await onDone(next).catch(() => 'Something went wrong. Try again.');
+    if (err) {
+      setMsg(err);
+      setFirst(null);
+      setPin('');
+      setBusy(false);
+    }
   }
 
   return (
@@ -533,9 +551,13 @@ export function SetPin({
           {msg ?? ' '}
         </T>
         <Keypad onDigit={digit} onDelete={() => setPin((p) => p.slice(0, -1))} disabled={busy} />
-        <T size={15} w="semibold" color={ON_BRAND} onPress={onSkip} accessibilityRole="button" style={{ marginTop: 22, marginBottom: 30 }}>
-          {skipLabel}
-        </T>
+        {onSkip ? (
+          <T size={15} w="semibold" color={ON_BRAND} onPress={onSkip} accessibilityRole="button" style={{ marginTop: 22, marginBottom: 30 }}>
+            {skipLabel}
+          </T>
+        ) : (
+          <View style={{ height: 30 }} />
+        )}
       </View>
     </BrandBackground>
   );

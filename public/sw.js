@@ -30,7 +30,8 @@ async function networkFirst(req, ms) {
   const cache = await caches.open(CACHE);
   try {
     const res = await Promise.race([fetch(req), new Promise((_, no) => setTimeout(() => no(new Error('slow')), ms))]);
-    if (cacheable(res)) cache.put('/', res.clone());
+    // Only the start page becomes the offline copy; a direct visit to another file must not replace it (audit L-7).
+    if (cacheable(res) && new URL(req.url).pathname === '/') cache.put('/', res.clone());
     return res;
   } catch {
     return (await cache.match('/')) || Response.error();

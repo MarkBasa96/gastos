@@ -5,7 +5,24 @@ import { StatusBar } from 'expo-status-bar';
 import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Lock, SetPin, SignIn, VerifyPin, Welcome } from './src/Auth';
+import {
+  clearAccountPinState,
+  clearVerifier,
+  flushOfflineFails,
+  loadKnown,
+  loadVerifier,
+  localCheck,
+  markLockedOut,
+  pinChange,
+  pinClaim,
+  pinDisable,
+  pinResetWithCode,
+  pinStatus,
+  pinVerify,
+  saveKnown,
+  writeVerifier,
+} from './src/accountPin';
+import { Lock, PinTry, SetPin, SignIn, VerifyPin, Welcome } from './src/Auth';
 import {
   Dirty,
   clearSyncState,
@@ -42,7 +59,7 @@ import { EditSheet } from './src/ExpenseRow';
 import { prefersReducedMotion, setSoundsOn } from './src/fx';
 import { HistoryScreen } from './src/HistoryScreen';
 import { LogScreen } from './src/LogScreen';
-import { MAX_TRIES, PinRecord, clearPin, loadPin, maskEmail, pinSupported, setPin, tryPin, weakPin } from './src/pin';
+import { MAX_TRIES, clearPin, loadPin, maskEmail, pinSupported, tryPin, weakPin } from './src/pin';
 import { SettingsScreen } from './src/SettingsScreen';
 import { AppearanceContext, Theme, cardRadius, useTheme } from './src/theme';
 import { Button, PigLoader, Sheet, SyncState, T } from './src/ui';
@@ -54,6 +71,26 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'settings', label: 'Settings' },
 ];
 type Screen = null | 'signin' | 'forgot' | 'setpin' | 'pinoff' | 'pinchange';
+
+/**
+ * The MPIN as the gate sees it. v3: the MPIN belongs to the account (server); this phone has a
+ * verifier for offline unlock, or a v2 per-phone record waiting to migrate (Kenshin v3 M4), or only
+ * knows from the server that one exists (needsOnline: can't unlock offline, Kenshin 1.4 rule 6).
+ */
+type PinView = { email: string | null; fails: number; lockedOut: boolean; needsOnline?: boolean } | 'none' | 'corrupt';
+type PinMode = 'create' | 'change' | 'reset';
+
+async function readPinView(uid: string | null): Promise<PinView> {
+  const v = await loadVerifier(uid);
+  if (v === 'corrupt') return 'corrupt';
+  if (v !== 'none') return { email: v.email, fails: v.fails, lockedOut: v.lockedOut };
+  const legacy = await loadPin(uid);
+  if (legacy === 'corrupt') return 'corrupt';
+  if (legacy !== 'none') return { email: legacy.email, fails: legacy.fails, lockedOut: legacy.lockedOut };
+  const known = await loadKnown(uid);
+  if (known?.enabled) return { email: null, fails: 0, lockedOut: false, needsOnline: true };
+  return 'none';
+}
 
 const APP_VERSION = '3.0.0';
 // Joe v3: no lock when switching apps; only a fresh open, or after this long away (Kenshin L4).
@@ -130,7 +167,9 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
   const [lastUser, setLastUser] = useState<string | null>(null);
   const [lastEmail, setLastEmail] = useState<string | null>(null);
   const [onboarded, setOnboarded] = useState(true);
-  const [pin, setPinRecord] = useState<PinRecord | 'none' | 'corrupt'>('none');
+  const [pin, setPinRecord] = useState<PinView>('none');
+  const pinMode = useRef<PinMode>('create');
+  const oldPin = useRef<string | null>(null); // Change MPIN: the current one, held only between the two screens
   const [unlocked, setUnlocked] = useState(false);
   const [syncing, setSyncingState] = useState(false);
   const [offline, setOffline] = useState(false);
@@ -168,7 +207,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         loadRates(),
       ]);
       // PIN state must be known BEFORE any data renders, or the gate is briefly open (Kenshin audit).
-      setPinRecord(await loadPin(lu));
+      setPinRecord(await readPinView(lu));
       lastUserRef.current = lu;
       expensesRef.current = e;
       settingsRef.current = s;
@@ -476,6 +515,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
       // Someone else's entries are still on this device: never upload them into this account.
       await clearSyncState();
       await clearPin();
+      await clearAccountPinState();
       setPinRecord('none');
       commit([]);
       writeDirty({});
@@ -504,6 +544,9 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
     lastUserRef.current = newUser;
     setLastEmail(email);
     setOnboarded(true);
+    // Audit H-1: forget this phone's MPIN copy (and its offline tries) BEFORE the new session exists.
+    // It gets rewritten at the next online check.
+    await clearVerifier();
     sessionRef.current = data.session;
     setSession(data.session);
     return newUser;
@@ -514,6 +557,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
     if (supabase) await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
     await clearSyncState();
     await clearPin();
+    await clearAccountPinState();
     await AsyncStorage.removeItem(LAST_EMAIL_KEY);
     setPinRecord('none');
     setLastUser(null);
@@ -532,17 +576,255 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
     }
   };
 
-  const onPinResult = async (p: string) => {
-    const r = await tryPin(p, lastUser);
-    const rec = await loadPin(lastUser);
-    setPinRecord(rec);
-    if (r === 'ok') setUnlocked(true);
-    if (r === 'locked' && supabase) {
-      // 5 wrong: sign out (revokes the token when online) but KEEP lastUser + data hidden (Kenshin H1, 1.6).
-      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-    }
-    return r;
+  const refreshPin = async () => setPinRecord(await readPinView(lastUserRef.current));
+
+  /** 5 wrong on any phone: sign out here but KEEP lastUser, data hidden (v2 H1/H2 rules, Kenshin v3 M5). */
+  const lockout = async () => {
+    await markLockedOut(lastUserRef.current);
+    if (supabase) await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+    // Audit L-1: offline with an expired token, signOut returns without removing the stored session.
+    const stale = (await AsyncStorage.getAllKeys()).filter((k) => /^sb-.+-auth-token$/.test(k));
+    if (stale.length) await AsyncStorage.multiRemove(stale);
+    sessionRef.current = null;
+    setSession(null);
+    setUnlocked(false);
+    await refreshPin();
   };
+
+  const myEmail = () => sessionRef.current?.user.email ?? lastEmail ?? '';
+
+  /** Lock screen. Online: the server decides, and a definite answer is final. Offline only: this phone's copy. */
+  const onPinResult = async (p: string): Promise<PinTry> => {
+    const uid = lastUserRef.current;
+    if (!uid) return 'locked';
+    const mine = await loadVerifier(uid);
+    if (mine !== 'none' && mine !== 'corrupt' && mine.lockedOut) {
+      await lockout(); // audit L-1: locked here means locked, online or not; only the email code clears it
+      return 'locked';
+    }
+    // Audit L-2: the server's answer only counts for THIS phone's account.
+    if (sessionRef.current && sessionRef.current.user.id === uid && online) {
+      const res = await pinVerify(p);
+      if (res !== 'network' && res.result === 'error') return 'offline'; // audit L-3: never a free local retry
+      if (res !== 'network') {
+        if (res.result === 'ok' && res.epoch) {
+          await writeVerifier(p, uid, myEmail(), res.epoch);
+          await saveKnown({ uid, enabled: true, epoch: res.epoch });
+          await clearPin(); // any v2 record is superseded by the account MPIN
+          await refreshPin();
+          setUnlocked(true);
+          return 'ok';
+        }
+        if (res.result === 'wrong') return { left: res.tries_left ?? 0 };
+        if (res.result === 'locked') {
+          await lockout();
+          return 'locked';
+        }
+        // 'none': the account has no MPIN yet. A v2 per-phone MPIN here gets checked, then claimed (M4).
+        const legacy = await loadPin(uid);
+        if (legacy !== 'none' && legacy !== 'corrupt') {
+          const lr = await tryPin(p, uid);
+          await refreshPin();
+          if (lr === 'wrong') return { left: MAX_TRIES - ((await loadPin(uid)) as { fails: number }).fails };
+          if (lr === 'locked') {
+            await lockout();
+            return 'locked';
+          }
+          const c = await pinClaim(p);
+          if (c !== 'network' && c.result === 'set' && c.epoch) {
+            await writeVerifier(p, uid, myEmail(), c.epoch);
+            await saveKnown({ uid, enabled: true, epoch: c.epoch });
+            await clearPin();
+          } else if (c !== 'network' && c.result === 'exists') {
+            // Another phone claimed first. She just proved this phone's old MPIN, so this session opens
+            // and isn't counted as wrong; the next fresh open asks the account's MPIN (M4).
+            await saveKnown({ uid, enabled: true, epoch: null });
+            await clearPin();
+          }
+          // Audit M-1: network/error/weak keep the old MPIN, so the next open simply tries the claim again.
+          await refreshPin();
+          setUnlocked(true);
+          return 'ok';
+        }
+        // No MPIN anywhere any more (turned off on another phone).
+        await clearVerifier();
+        await saveKnown({ uid, enabled: false, epoch: null });
+        await refreshPin();
+        setUnlocked(true);
+        return 'ok';
+      }
+    }
+    // No network (or it failed): this phone's copy, never after a definite server answer (1.4 rule 2).
+    if ((await loadVerifier(uid)) !== 'none') {
+      const lr = await localCheck(p, uid);
+      await refreshPin();
+      if (lr === 'ok') {
+        setUnlocked(true);
+        return 'ok';
+      }
+      if (lr === 'stale') return 'offline';
+      if (lr === 'locked') {
+        await lockout();
+        return 'locked';
+      }
+      const v = await loadVerifier(uid);
+      return { left: v === 'none' || v === 'corrupt' ? 0 : MAX_TRIES - v.fails };
+    }
+    const legacy = await loadPin(uid);
+    if (legacy !== 'none' && legacy !== 'corrupt') {
+      const lr = await tryPin(p, uid);
+      await refreshPin();
+      if (lr === 'ok') {
+        setUnlocked(true);
+        return 'ok';
+      }
+      if (lr === 'locked') {
+        await lockout();
+        return 'locked';
+      }
+      return { left: MAX_TRIES - ((await loadPin(uid)) as { fails: number }).fails };
+    }
+    return 'offline'; // an MPIN exists on the account, and this phone has never checked it online
+  };
+
+  /** Settings → Change / Turn off: current MPIN first, checked by the SERVER in the same call (Kenshin H2). */
+  const onVerifyCurrent = async (p: string, off: boolean): Promise<PinTry> => {
+    const uid = lastUserRef.current;
+    if (!uid || !online) return 'offline';
+    const res = off ? await pinDisable(p) : await pinVerify(p);
+    if (res === 'network' || res.result === 'error') return 'offline';
+    if (res.result === 'wrong') return { left: res.tries_left ?? 0 };
+    if (res.result === 'locked') {
+      await lockout();
+      setScreen(null);
+      return 'locked';
+    }
+    if (res.result === 'none' && (await loadPin(uid)) !== 'none') {
+      // Only a v2 per-phone MPIN exists (not migrated yet): check it on this phone.
+      const lr = await tryPin(p, uid);
+      if (lr === 'wrong') return { left: MAX_TRIES - ((await loadPin(uid)) as { fails: number }).fails };
+      if (lr === 'locked') {
+        await lockout();
+        setScreen(null);
+        return 'locked';
+      }
+    }
+    if (off) {
+      await clearPin();
+      await clearVerifier();
+      await saveKnown({ uid, enabled: false, epoch: res.result === 'ok' ? res.epoch ?? null : null });
+      await refreshPin();
+      setScreen(null);
+    } else {
+      oldPin.current = res.result === 'ok' ? p : null;
+      pinMode.current = res.result === 'ok' ? 'change' : 'create';
+      setScreen('setpin');
+    }
+    return 'ok';
+  };
+
+  /** Create, change or reset: the server says yes before this phone stores anything. */
+  const onNewPin = async (p: string): Promise<string | null> => {
+    const s = sessionRef.current;
+    const uid = s?.user.id ?? null;
+    if (!s || !uid) return 'Sign in first.';
+    if (!online) return 'Needs internet, so every phone gets the same MPIN.';
+    const mode = pinMode.current;
+    const res = mode === 'change' && oldPin.current ? await pinChange(oldPin.current, p) : mode === 'reset' ? await pinResetWithCode(p) : await pinClaim(p);
+    if (res === 'network' || res.result === 'error') return 'Couldn’t reach the server. Check your internet and try again.';
+    if (res.result === 'weak') return 'That one’s too easy to guess. Try another.';
+    if (res.result === 'stale_code') {
+      // Audit L-5: no dead end. Back to Forgot MPIN for a fresh code.
+      setUnlocked(false);
+      setScreen('forgot');
+      return null;
+    }
+    if (res.result === 'exists') {
+      // Another phone set the account's MPIN first: use that one.
+      await saveKnown({ uid, enabled: true, epoch: null });
+      await refreshPin();
+      setUnlocked(false);
+      setScreen(null);
+      return null;
+    }
+    if (res.result === 'wrong' || res.result === 'locked') {
+      if (res.result === 'locked') await lockout();
+      setScreen(null);
+      return null;
+    }
+    if (!res.epoch) return 'Something went wrong. Try again.';
+    await writeVerifier(p, uid, s.user.email ?? myEmail(), res.epoch);
+    await saveKnown({ uid, enabled: true, epoch: res.epoch });
+    await clearPin();
+    oldPin.current = null;
+    await refreshPin();
+    setUnlocked(true);
+    setScreen(null);
+    return null;
+  };
+
+  /** After an email code: does the account have an MPIN, and is it locked? */
+  const afterCode = async (uid: string, fresh: boolean) => {
+    let st = await pinStatus();
+    if (st === 'network' || st.result === 'error') st = await pinStatus(10_000);
+    if (st === 'network' || st.result === 'error') {
+      // Audit M-2: couldn't ask. She just proved her email, so this session opens, but the phone
+      // assumes an MPIN exists: the next fresh open checks online before opening (fails closed).
+      await saveKnown({ uid, enabled: true, epoch: null });
+      await refreshPin();
+      setUnlocked(true);
+      setScreen(null);
+      return;
+    }
+    await saveKnown({ uid, enabled: !!st.enabled, epoch: st.epoch ?? null });
+    const v = await loadVerifier(uid);
+    if (v !== 'none' && (v === 'corrupt' || v.epoch !== st.epoch || v.lockedOut)) await clearVerifier();
+    if (st.locked || (v !== 'none' && v !== 'corrupt' && v.lockedOut && st.enabled)) {
+      // Locked out: the code she just used lets her set a NEW MPIN; no skipping (Kenshin H2).
+      pinMode.current = 'reset';
+      setUnlocked(true);
+      setScreen('setpin');
+    } else if (st.enabled && fresh) {
+      // A phone new to this account: ask for the SAME MPIN, not a new one (Joe v3).
+      setUnlocked(false);
+      setScreen(null);
+    } else if (!st.enabled && pinSupported()) {
+      pinMode.current = 'create';
+      setUnlocked(true);
+      setScreen('setpin');
+    } else {
+      setUnlocked(true);
+      setScreen(null);
+    }
+    await refreshPin();
+  };
+
+  // Every fresh open with a network: learn about changes made on other phones (Kenshin 1.4 rule 4).
+  useEffect(() => {
+    const uid = session?.user.id;
+    if (!uid || !online || uid !== lastUser) return;
+    let gone = false;
+    (async () => {
+      const st0 = await pinStatus();
+      if (gone || st0 === 'network' || st0.result === 'error') return;
+      // Audit H-1: a session that just came from an email code may reset; never sign it out for being
+      // locked, and never report old offline tries on top of it.
+      if (!st0.can_reset) {
+        const flushed = await flushOfflineFails(uid);
+        if (flushed?.result === 'locked') return lockout();
+      }
+      const st = (await pinStatus()) as typeof st0 | 'network';
+      if (gone || st === 'network' || st.result === 'error') return;
+      await saveKnown({ uid, enabled: !!st.enabled, epoch: st.epoch ?? null });
+      const v = await loadVerifier(uid);
+      if (v !== 'none' && v !== 'corrupt' && (v.epoch !== st.epoch || !st.enabled)) await clearVerifier();
+      if (st.locked && !st.can_reset) return lockout();
+      await refreshPin();
+    })().catch(() => {});
+    return () => {
+      gone = true;
+    };
+  }, [session?.user.id, online, lastUser]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ---------- derived ----------
   const visible = useMemo(() => (expenses ?? []).filter((e) => !e.deleted), [expenses]);
@@ -592,9 +874,8 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         t={t}
         onSend={sendCode(true)}
         onVerify={async (email, code) => {
-          await verifyCode(email, code);
-          setUnlocked(true);
-          setScreen(pinSupported() ? 'setpin' : null);
+          const uid = await verifyCode(email, code);
+          await afterCode(uid, true);
         }}
         onBack={() => setScreen(null)}
       />
@@ -610,12 +891,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         onSend={sendCode(false)}
         onVerify={async (email, code) => {
           const uid = await verifyCode(email, code);
-          if (uid === lastUser) {
-            await clearPin();
-            setPinRecord('none');
-          }
-          setUnlocked(true);
-          setScreen(pinSupported() ? 'setpin' : null);
+          await afterCode(uid, uid !== lastUser);
         }}
         extra={<Button label="Use another account" kind="text" onPress={() => setSwitchAsk(true)} t={t} style={{ marginTop: 20 }} />}
       />
@@ -632,10 +908,15 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
           onVerify={async (email, code) => {
             const { data, error } = await supabase!.auth.verifyOtp({ email, token: code, type: 'email' });
             if (error) throw error;
-            // Only after the code verifies for the SAME user do we drop the old PIN (Kenshin 1.7).
-            if (data.user?.id !== lastUser) throw new Error('invalid');
-            await clearPin();
-            setPinRecord('none');
+            // Only after the code verifies for the SAME user (Kenshin 1.7). Then a NEW MPIN; reset never turns it off (H2).
+            if (data.user?.id !== lastUser) {
+              await supabase!.auth.signOut({ scope: 'local' }).catch(() => {}); // audit L-2
+              throw new Error('invalid');
+            }
+            await clearVerifier(); // audit H-1: no old offline tries reported after this code
+            sessionRef.current = data.session;
+            setSession(data.session);
+            pinMode.current = 'reset';
             setUnlocked(true);
             setScreen('setpin');
           }}
@@ -648,7 +929,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
       body = (
         <Lock
           maskedEmail={maskEmail(fixedEmail)}
-          triesLeft={MAX_TRIES - pin.fails}
+          hint={pin.needsOnline ? 'The same MPIN you use on your other phone.' : undefined}
           onTry={onPinResult}
           onForgot={() => setScreen('forgot')}
           onSwitch={() => setSwitchAsk(true)}
@@ -663,23 +944,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         key={screen}
         title={off ? 'Turn off MPIN' : 'Change MPIN'}
         intro={off ? 'Enter your current MPIN first. This turns it off on all your phones.' : 'Enter your current MPIN first.'}
-        triesLeft={MAX_TRIES - pin.fails}
-        onTry={async (p) => {
-          const r = await onPinResult(p);
-          if (r === 'ok') {
-            if (off) {
-              await clearPin();
-              setPinRecord('none');
-              setScreen(null);
-            } else {
-              setScreen('setpin');
-            }
-          } else if (r === 'locked') {
-            setUnlocked(false);
-            setScreen(null);
-          }
-          return r;
-        }}
+        onTry={(p) => onVerifyCurrent(p, off)}
         onCancel={() => setScreen(null)}
         onForgot={() => {
           setUnlocked(false);
@@ -692,14 +957,10 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
       <SetPin
         t={t}
         isWeak={weakPin}
-        onDone={async (p) => {
-          await setPin(p, session.user.id, session.user.email ?? fixedEmail);
-          setPinRecord(await loadPin(session.user.id));
-          setUnlocked(true);
-          setScreen(null);
-        }}
-        onSkip={() => setScreen(null)} // never unlocks anything (Kenshin M-A)
-        skipLabel={pinSet ? 'Cancel' : 'Skip for now'}
+        onDone={onNewPin}
+        // Never unlocks anything (Kenshin M-A). A forgotten MPIN has no skip: it ends with a new one (H2).
+        onSkip={pinMode.current === 'reset' ? undefined : () => setScreen(null)}
+        skipLabel={pinMode.current === 'change' ? 'Cancel' : 'Skip for now'}
       />
     );
   } else if (!session && !lastUser && !onboarded) {
@@ -760,7 +1021,14 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
           }}
           pinOn={pinSet}
           pinSupported={pinSupported()}
-          onSetupPin={() => setScreen(pinSet ? 'pinchange' : 'setpin')}
+          onSetupPin={() => {
+            if (pinSet) {
+              setScreen('pinchange');
+            } else {
+              pinMode.current = 'create';
+              setScreen('setpin');
+            }
+          }}
           onTurnOffPin={() => setScreen('pinoff')}
           onAppearance={changeAppearance}
           onRenameLabel={renameLabel}
