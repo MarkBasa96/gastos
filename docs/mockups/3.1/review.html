@@ -63,7 +63,7 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
     <span class="pill">Round 1 built · round 3 for review</span>
   </div>
   <nav class="toc" aria-label="Sections">
-    <a href="#round2">Round 3 · Your list behind Other</a><a href="#built">Built since round 1</a>
+    <a href="#round2">Round 3 · Your list behind Other</a><a href="#built">Built: History details</a>
     <a href="#themes">1 · Color themes</a><a href="#faq">2 · FAQ</a><a href="#blur">3 · Blurred pop-ups</a>
     <a href="#back">4 · Back button</a><a href="#other">5 · “Other” label</a><a href="#note">6 · Note</a><a href="#questions">Questions</a>
   </nav>
@@ -96,10 +96,9 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
 </section>
 
 <section id="built">
-  <h2><small>Built since round 1</small>Other pop-up and History details</h2>
-  <p class="what">Already on the branch, from your last two requests. These screenshots are from the real app, not mockups. Tapping Other opens a pop-up instead of a box under the tiles. Tapping an entry in History shows everything about it, with <b>Edit</b> at the top.</p>
+  <h2><small>Built since round 1</small>History details</h2>
+  <p class="what">Already on the branch. These screenshots are from the real app, not mockups. Tapping an entry in History shows everything about it, with <b>Edit</b> at the top.</p>
   <div class="shots">
-    <figure><img src="img/built-other-popup.png" alt="The built What was it pop-up"><figcaption>Other pop-up (built, will become the list above)</figcaption></figure>
     <figure><img src="img/built-details-light.png" alt="The built entry details pop-up in light mode"><figcaption>History entry details</figcaption></figure>
     <figure><img src="img/built-details-dark.png" alt="The built entry details pop-up in dark mode"><figcaption>History entry details, dark</figcaption></figure>
   </div>
@@ -161,14 +160,15 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
 
 <section id="other">
   <h2><small>Update 5</small>Name your own “Other”</h2>
-  <p class="what">Tapping <b>Other</b> opens a small “What was it?” box right under the tiles. Whatever you type becomes the tile's label and the entry's category, so History shows “Haircut” instead of “Other”. A tick box, on by default (<b>decided</b>), keeps it as a tile for next time. It's the same as adding it under Settings → Categories, just without leaving the Log screen.</p>
+  <p class="what">Tapping <b>Other</b> opens a centered “What was it?” pop-up. Pick a name from your list, or type a new one. The name becomes the entry's category, so History shows “Haircut” instead of “Other”, and the Other tile shows it too. New names are saved to your list for next time (ticked by default). The main grid always stays at the original 8 tiles. The full design is in <a href="#round2">Round 3</a> above.</p>
   <ul class="points">
-    <li>If you leave the box empty, the entry saves as plain “Other”, same as today.</li>
-    <li>The same box works for “Other income” on the Income side.</li>
+    <li>Pin the names you use most; the rest are sorted by most used.</li>
+    <li>If you leave it empty, the entry saves as plain “Other”, same as today.</li>
+    <li>The same pop-up works for “Other income” on the Income side.</li>
   </ul>
   <div class="shots">
-    <figure><img src="img/other-light.png" alt="Log screen with Other tapped, showing a What was it box filled with Haircut"><figcaption>Other → “Haircut” (scrolled down a little)</figcaption></figure>
-    <figure><img src="img/other-dark.png" alt="Same Other flow in dark mode"><figcaption>Other, dark</figcaption></figure>
+    <figure><img src="img/r2-olist-light.png" alt="The centered What was it pop-up with pinned names on top"><figcaption>Tap Other: the pop-up</figcaption></figure>
+    <figure><img src="img/r2-grid8-light.png" alt="Log screen, the Other tile reads Coffee"><figcaption>After picking: the Other tile shows the name</figcaption></figure>
   </div>
 </section>
 
@@ -185,7 +185,7 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
   <h2><small>Before I build</small>Decisions and what's left</h2>
   <ol class="qs">
     <li><b>Theme scope: follows the account.</b> Your agent runs one new database file when publishing (<code>supabase/migration-v3.1.sql</code>). It adds a <code>color_theme</code> column to the settings table, limited to the 8 theme names. Existing access rules already cover it. Older app versions leave it alone, and the new app keeps working if it runs before the file is applied.</li>
-    <li><b>Other: “Keep as a tile” ticked by default.</b></li>
+    <li><b>Other: new names are saved to your list by default</b> (untick to use a name just once).</li>
     <li><b>Note: the colored box, as drawn.</b></li>
     <li><b>Back button: fix Android</b> (APK, Chrome and home screen). iPhone keeps its on-screen close buttons.</li>
     <li><b>Still open:</b> are the 8 themes right, and is there anything to add to the FAQ? If this round looks good, tell me to build.</li>

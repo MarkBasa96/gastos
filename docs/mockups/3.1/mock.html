@@ -315,7 +315,7 @@ function confirmDlg(){
 let html = '';
 if (S==='log') html = log();
 else if (S==='other') html = log({cat:'Other', other:'Haircut', amt:'150', note:'Barber near the office', scroll:150});
-else if (S==='confirm') html = log({cat:'Other', other:'Haircut', amt:'150', note:'Barber near the office', scroll:150}) + confirmDlg();
+else if (S==='confirm') html = log({cat:'Other', picked:'Haircut', amt:'150', note:'Barber near the office'}) + confirmDlg();
 else if (S==='filled') html = log({cat:'Food', amt:'185', note:'Jollibee lunch', wallet:'GCash'});
 else if (S==='back') html = log({backhint:true});
 else if (S==='grid8') html = log({cat:'Other', picked:'Coffee', amt:'120', note:'Iced latte'});
