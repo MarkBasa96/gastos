@@ -59,8 +59,8 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
   <p class="lede">Six updates from Joe's list, drawn as phone-size mockups in light and dark before any code is written. Screens use sample data. Nothing here is built yet; say what to change and I'll do another round.</p>
   <div class="meta">
     <span class="pill">Suggested version: 3.1</span>
-    <span class="pill">No database changes needed</span>
-    <span class="pill warn">6 questions at the end</span>
+    <span class="pill warn">1 small database change</span>
+    <span class="pill">Decisions recorded, round 1</span>
   </div>
   <nav class="toc" aria-label="Sections">
     <a href="#themes">1 · Color themes</a><a href="#faq">2 · FAQ</a><a href="#blur">3 · Blurred pop-ups</a>
@@ -74,7 +74,7 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
   <ul class="points">
     <li>Themes: Gastos green (default), Baby pink, Lavender, Ocean blue, Mint teal, Sunset coral, Sunflower, Latte.</li>
     <li>Every button color passes the 4.5:1 readability rule on its background, in both light and dark.</li>
-    <li>It's saved on this phone only, like Appearance and Sounds, so it needs no database change.</li>
+    <li><b>Decided:</b> the theme follows your account, so it shows on every phone you sign in on. It needs one new column on the settings table (see Questions). On this phone only, without signing in, it simply stays on the phone.</li>
   </ul>
   <div class="shots">
     <figure><img src="img/settings-light.png" alt="Settings in light mode with a new Color theme row and a Help section"><figcaption>Settings: new Color theme row and Help section</figcaption></figure>
@@ -118,13 +118,13 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
   <p class="what">This one has no new screen. The intended behavior stays the same as the 3.0 notes: Back closes the open sheet or pop-up without saving or deleting anything, goes from History or Settings to Log, and on Log shows “Press back again to exit”.</p>
   <div class="tech">
     <p><b>Likely cause.</b> Gastos adds a “spare” step to the browser history so Back has something to undo. It adds that step when the app opens and again right after each Back, when you haven't tapped anything. Chrome, which also runs the Android app, now skips history steps a page adds without a tap. So Back jumps straight past Gastos and closes the app.</p>
-    <p><b>Fix plan.</b> Where the phone supports Chrome's built-in way to catch Back for pop-ups (Android Chrome and the Android app), use that. Everywhere else, add the spare history step only right after a real tap. Then I test it in an Android-sized browser. The final check is yours on a real phone, as with v3.</p>
+    <p><b>Fix plan.</b> Where the phone supports Chrome's built-in way to catch Back for pop-ups (Android Chrome and the Android app), use that. Everywhere else, add the spare history step only right after a real tap. Then I test it in an Android-sized browser. The final check is yours on a real phone, as with v3.</p><p><b>Reported on:</b> the Android app (APK), Android Chrome and the home-screen app, and iPhone. The fix covers all the Android cases. On iPhone, a home-screen app has no Back button, and Safari's edge swipe doesn't go back inside it. That's an iOS limit, so on iPhone every sheet and pop-up keeps its Cancel or X, and you can tap outside it to close it.</p>
   </div>
 </section>
 
 <section id="other">
   <h2><small>Update 5</small>Name your own “Other”</h2>
-  <p class="what">Tapping <b>Other</b> opens a small “What was it?” box right under the tiles. Whatever you type becomes the tile's label and the entry's category, so History shows “Haircut” instead of “Other”. A tick box, on by default, keeps it as a tile for next time. It's the same as adding it under Settings → Categories, just without leaving the Log screen.</p>
+  <p class="what">Tapping <b>Other</b> opens a small “What was it?” box right under the tiles. Whatever you type becomes the tile's label and the entry's category, so History shows “Haircut” instead of “Other”. A tick box, on by default (<b>decided</b>), keeps it as a tile for next time. It's the same as adding it under Settings → Categories, just without leaving the Log screen.</p>
   <ul class="points">
     <li>If you leave the box empty, the entry saves as plain “Other”, same as today.</li>
     <li>The same box works for “Other income” on the Income side.</li>
@@ -137,7 +137,7 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
 
 <section id="note">
   <h2><small>Update 6</small>A note that's easy to see</h2>
-  <p class="what">The small dashed “+ Note” chip becomes a full-width box in the theme's color, sitting right above Save with a hint: “Add a note, like ‘Jollibee lunch’”. The keyboard still opens only when you tap it. Before saving, the pop-up shows the note in its own colored line, so it's easy to check.</p>
+  <p class="what">The small dashed “+ Note” chip becomes a full-width box in the theme's color, sitting right above Save with a hint: “Add a note, like ‘Jollibee lunch’”. The keyboard still opens only when you tap it. Before saving, the pop-up shows the note in its own colored line, so it's easy to check. <b>Decided:</b> the colored box, as drawn.</p>
   <div class="shots">
     <figure><img src="img/log-light.png" alt="Log screen with a full-width highlighted note box above Save"><figcaption>Empty note, with hint</figcaption></figure>
     <figure><img src="img/log-dark.png" alt="Log screen in dark mode with the note box"><figcaption>Empty note, dark</figcaption></figure>
@@ -145,14 +145,13 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
 </section>
 
 <section id="questions">
-  <h2><small>Before I build</small>Questions for you</h2>
+  <h2><small>Before I build</small>Decisions and what's left</h2>
   <ol class="qs">
-    <li><b>Themes:</b> are these 8 right, or should I swap or add any (for example a darker “Midnight” or a red)?</li>
-    <li><b>Theme scope:</b> this phone only (my suggestion, same as Appearance), or follow the account onto every phone? Following the account needs a small database change.</li>
-    <li><b>Other:</b> should the “Keep as a tile” box be ticked by default (as drawn), or unticked so one-off entries don't pile up as tiles?</li>
-    <li><b>Note:</b> is the full-width colored box right, or too loud? A quieter option is the same box in plain white with only the icon colored.</li>
-    <li><b>Back button:</b> which phone showed the problem, Android or iPhone? And was it the installed app from the APK, the home-screen app, or Chrome? One note on iPhone: a home-screen app on iPhone has no Back button, and swiping from the edge doesn't go back inside it. That's an iOS limit, so the fix is Android-only.</li>
-    <li><b>FAQ:</b> anything you get asked often that should be in the list?</li>
+    <li><b>Theme scope: follows the account.</b> Your agent runs one new database file when publishing (<code>supabase/migration-v3.1.sql</code>). It adds a <code>color_theme</code> column to the settings table, limited to the 8 theme names. Existing access rules already cover it. Older app versions leave it alone, and the new app keeps working if it runs before the file is applied.</li>
+    <li><b>Other: “Keep as a tile” ticked by default.</b></li>
+    <li><b>Note: the colored box, as drawn.</b></li>
+    <li><b>Back button: fix Android</b> (APK, Chrome and home screen). iPhone keeps its on-screen close buttons.</li>
+    <li><b>Still open:</b> are the 8 themes right, and is there anything to add to the FAQ? If this round looks good, tell me to build.</li>
   </ol>
 </section>
 
