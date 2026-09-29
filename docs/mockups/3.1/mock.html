@@ -111,11 +111,11 @@ svg.i{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;f
 .faq .ans{padding:0 16px 14px 16px;font-size:14.5px;line-height:21px;color:var(--muted);font-weight:400}
 .faq .open{background:var(--accentSoft)}
 .search{height:44px;border:1px solid var(--border);border-radius:12px;background:var(--surface);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--muted);font-size:15px;margin-top:14px}
-.odlg{position:absolute;left:16px;right:16px;top:74px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:18px 18px 16px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.odlg{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:18px 18px 16px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
 .odlg h3{font-size:20px;font-weight:700}
 .olab{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--muted);margin:14px 2px 8px}
 .obox{position:relative;height:266px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg)}
-.orow{display:flex;align-items:center;gap:12px;height:48px;padding:0 30px 0 14px;border-top:1px solid var(--border);font-size:16px;color:var(--text)}
+.orow{display:flex;align-items:center;gap:12px;height:48px;padding:0 22px 0 14px;border-top:1px solid var(--border);font-size:16px;color:var(--text)}
 .orow:first-child{border-top:0}
 .orow .ic{color:var(--muted);display:flex}
 .orow.on{background:var(--accentSoft);font-weight:600}
@@ -124,6 +124,9 @@ svg.i{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;f
 .otrack{position:absolute;top:6px;bottom:6px;right:5px;width:6px;border-radius:3px;background:var(--border);opacity:.7}
 .othumb{position:absolute;right:5px;width:6px;border-radius:3px;background:var(--muted)}
 .oadd{display:flex;align-items:center;gap:10px;height:52px;padding:0 14px;border:1.5px solid var(--accent);border-radius:14px;background:var(--accentSoft);color:var(--accent);font-size:16px;font-weight:600;margin-top:12px}
+.opin{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--muted);opacity:.75}
+.opin.on{color:var(--accent);background:var(--accentSoft);opacity:1}
+.osec{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:9px 14px 5px;background:var(--bg)}
 .oempty{font-size:14px;color:var(--muted);padding:14px}
 .backhint{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:14px;font-weight:600;padding:10px 16px;border-radius:22px;white-space:nowrap}
 </style></head><body>
@@ -178,6 +181,7 @@ const IC = {
  palette:'<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
  check:'<path d="M20 6 9 17l-5-5"/>',
  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+ pin:'<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>',
  tag:'<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
  pen:'<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
  pig:'<path d="M11 17h3v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3a3.16 3.16 0 0 0 2-2h1a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-1a5 5 0 0 0-2-4V3a4 4 0 0 0-3.2 1.6l-.3.4H11a6 6 0 0 0-6 6v1a5 5 0 0 0 2 4v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1z"/><path d="M16 10h.01"/><path d="M2 8v1a2 2 0 0 0 2 2h1"/>',
@@ -277,19 +281,26 @@ function faqSheet(){
    <div class="card faq" style="margin-top:12px">${rows}</div></div>`;
 }
 
-const MYLIST = ['Haircut','Parking','Coffee','Condo dues','Cooking gas','Pets','Laundry','Gym','Gifts','Rent','Tuition','Netflix'];
+// Most used first (Joe v3.1 round 2); pinned ones sit on top whatever their use.
+const MYLIST = ['Haircut','Tuition','Laundry','Condo dues','Cooking gas','Gym','Pets','Gifts','Rent','Netflix','Coffee','Parking'];
+const PINNED = ['Coffee','Parking'];
 function otherDlg(q, typed){
   const ql = (q||'').toLowerCase();
-  const hits = MYLIST.filter(n => !ql || n.toLowerCase().includes(ql));
+  const match = n => !ql || n.toLowerCase().includes(ql);
+  const pinned = PINNED.filter(match), rest = MYLIST.filter(n => !PINNED.includes(n) && match(n));
   const hl = n => { if(!ql) return n; const i=n.toLowerCase().indexOf(ql); return n.slice(0,i)+'<mark>'+n.slice(i,i+ql.length)+'</mark>'+n.slice(i+ql.length); };
-  const rows = hits.map(n => `<div class="orow"><span class="ic">${ic('tag',18)}</span><span style="flex:1">${hl(n)}</span></div>`).join('');
-  const scroll = hits.length > 5;
-  const thumbH = scroll ? Math.max(40, Math.round(254 * 5.5 / hits.length)) : 0;
+  const row = (n, on) => `<div class="orow"><span class="ic">${ic('tag',18)}</span><span style="flex:1">${hl(n)}</span><span class="opin ${on?'on':''}">${ic('pin',17,2,on?'fill="currentColor"':'')}</span></div>`;
+  let rows = '';
+  if (pinned.length) rows += `<div class="osec">Pinned</div>` + pinned.map(n => row(n, true)).join('');
+  if (rest.length) rows += `<div class="osec">${ql ? 'In your list' : 'Most used'}</div>` + rest.map(n => row(n, false)).join('');
+  const total = pinned.length + rest.length;
+  const scroll = total > 4;
+  const thumbH = scroll ? Math.max(40, Math.round(254 * 4.6 / (total + 1.5))) : 0;
   const field = `<div class="field focus" style="margin-top:14px">${ic('search',18,2,'style="color:var(--muted)"')}<span style="flex:1;${q?'':'color:var(--muted)'}">${q||'Search, or type a new one'}</span>${q?`<span style="width:1.5px;height:20px;background:var(--accent)"></span>${ic('x',16,2,'style="color:var(--muted)"')}`:''}</div>`;
   const add = typed ? `<div class="oadd">${ic('plus',18,2.2)}<span style="flex:1">Use “${q}”</span></div>
      <div class="check" style="margin:10px 2px 0"><div class="box on">${ic('check',14,3)}</div>Save “${q}” to my list</div>` : '';
-  const list = hits.length
-    ? `<div class="olab"><span>${q ? 'In your list' : 'Your list'}</span><span>${hits.length}</span></div><div class="obox">${rows}${scroll?`<div class="otrack"></div><div class="othumb" style="top:6px;height:${thumbH}px"></div>`:''}</div>`
+  const list = total
+    ? `<div class="olab"><span>Your list · tap ${ic('pin',12,2.2,'style="vertical-align:-1px"')} to keep one on top</span><span>${total}</span></div><div class="obox">${rows}${scroll?`<div class="otrack"></div><div class="othumb" style="top:6px;height:${thumbH}px"></div>`:''}</div>`
     : `<div class="olab"><span>Your list</span></div><div class="obox" style="height:auto"><div class="oempty">Nothing in your list matches “${q}”.</div></div>`;
   return `<div class="veil"></div><div class="odlg"><h3>What was it?</h3>${field}${add}${list}
     <div class="row2"><div class="btn out">Cancel</div><div class="btn" style="font-size:16px;${typed?'':'opacity:.45'}">Done</div></div></div>`;

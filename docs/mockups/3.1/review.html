@@ -54,26 +54,28 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
 
 <div class="wrap">
 <header>
-  <div class="eyebrow">Mockup review · round 2</div>
+  <div class="eyebrow">Mockup review · round 3</div>
   <h1>Gastos 3.1</h1>
   <p class="lede">Six updates from Joe's list, drawn as phone-size mockups in light and dark before any code is written. Screens use sample data. Nothing here is built yet; say what to change and I'll do another round.</p>
   <div class="meta">
     <span class="pill">Suggested version: 3.1</span>
     <span class="pill warn">1 small database change</span>
-    <span class="pill">Round 1 built · round 2 for review</span>
+    <span class="pill">Round 1 built · round 3 for review</span>
   </div>
   <nav class="toc" aria-label="Sections">
-    <a href="#round2">Round 2 · Your list behind Other</a><a href="#built">Built since round 1</a>
+    <a href="#round2">Round 3 · Your list behind Other</a><a href="#built">Built since round 1</a>
     <a href="#themes">1 · Color themes</a><a href="#faq">2 · FAQ</a><a href="#blur">3 · Blurred pop-ups</a>
     <a href="#back">4 · Back button</a><a href="#other">5 · “Other” label</a><a href="#note">6 · Note</a><a href="#questions">Questions</a>
   </nav>
 </header>
 
 <section id="round2">
-  <h2><small>Round 2 · for review</small>Your list lives behind “Other”</h2>
+  <h2><small>Round 3 · for review</small>Your list lives behind “Other”</h2>
   <p class="what">Right now every name you save becomes a new tile, and the grid grows by a row for every 4. In testing, 5 of your own tiles already pushed Save behind the tab bar, and 12 hid both the note and Save. In this version the main grid always keeps the original 8 tiles. Everything you've added lives in a pop-up behind <b>Other</b>.</p>
   <ul class="points">
-    <li><b>Tap Other:</b> a “What was it?” pop-up opens with a search box on top and <b>Your list</b> below it.</li>
+    <li><b>Tap Other:</b> a “What was it?” pop-up opens <b>in the middle of the screen</b>, with a search box on top and <b>Your list</b> below it.</li>
+    <li><b>Pin a name</b> with the pin on its right, and it stays in a <b>Pinned</b> group at the top. Tap the pin again to unpin it. Pins follow your account onto every phone, like the color theme.</li>
+    <li><b>Everything else is sorted by most used</b>, counted from your own entries, so your usual ones sit near the top.</li>
     <li><b>The list scrolls in its own box</b> with a scrollbar on the right. The pop-up and the page never move, so Cancel and Done stay put.</li>
     <li><b>Search as you type:</b> the list narrows to matches, with the matching letters in the theme color. Tap a name to pick it and close the pop-up.</li>
     <li><b>Something new:</b> when nothing matches, you get <b>Use “Tricycle”</b> and a tick box (on by default) to save it to your list for next time.</li>
@@ -82,15 +84,15 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
   </ul>
   <div class="shots">
     <figure><img src="img/r2-grid8-light.png" alt="Log screen with only the original 8 tiles; the Other tile reads Coffee"><figcaption>Grid stays at 8 tiles, Other shows the pick</figcaption></figure>
-    <figure><img src="img/r2-olist-light.png" alt="What was it pop-up with a search box and a scrollable list of 12 saved names with a scrollbar on the right"><figcaption>Tap Other: your list, scrollbar on the right</figcaption></figure>
-    <figure><img src="img/r2-osearch-light.png" alt="The pop-up with co typed, showing Coffee, Condo dues and Cooking gas"><figcaption>Typing “co” narrows the list</figcaption></figure>
+    <figure><img src="img/r2-olist-light.png" alt="What was it pop-up with a search box and a scrollable list of 12 saved names with a scrollbar on the right"><figcaption>Tap Other: centered, pinned on top, scrollbar on the right</figcaption></figure>
+    <figure><img src="img/r2-osearch-light.png" alt="The pop-up with co typed, showing Coffee, Condo dues and Cooking gas"><figcaption>Typing “co” narrows both groups</figcaption></figure>
     <figure><img src="img/r2-onew-light.png" alt="The pop-up with Tricycle typed, offering Use Tricycle and Save Tricycle to my list"><figcaption>A new name: use it, and save it</figcaption></figure>
     <figure><img src="img/r2-grid8-dark.png" alt="Log screen, dark"><figcaption>Grid, dark</figcaption></figure>
     <figure><img src="img/r2-olist-dark.png" alt="Your list pop-up, dark"><figcaption>Your list, dark</figcaption></figure>
     <figure><img src="img/r2-osearch-dark.png" alt="Search in the pop-up, dark"><figcaption>Search, dark</figcaption></figure>
     <figure><img src="img/r2-onew-dark.png" alt="New name in the pop-up, dark"><figcaption>New name, dark</figcaption></figure>
   </div>
-  <div class="ask"><b>For you to decide</b><p>Is this the list you pictured? Anything to change before I build it? One option: sort the list by most used instead of A to Z, so your usual ones sit on top.</p></div>
+  <div class="ask"><b>Round 3 changes</b><p>From your round 2 notes: the pop-up is now centered on the screen, names can be pinned, and the rest are sorted by most used. Pins need one more column on the settings table, added to the same <code>supabase/migration-v3.1.sql</code> your agent runs tonight, so nothing extra to run.</p></div>
 </section>
 
 <section id="built">
