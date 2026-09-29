@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/hero.png" alt="Gastos: the Log screen with money left this month, History with spending and income rings, and the save confirmation" width="100%" />
+<img src="docs/hero.png" alt="Gastos: the Log screen in dark mode with money left this month, the color theme picker with eight themes, and History with spending and income rings" width="100%" />
 
 # Gastos
 
@@ -24,6 +24,13 @@ Gastos started as a favour for someone who had never tracked her spending. One r
 every design choice: **if logging is inconvenient, she won't keep it up.** So logging is amount,
 one category tile, Save, done. The keyboard only opens when you tap the amount, "Paid with"
 remembers your usual wallet, and Save sits right under your thumb.
+
+## What's new in 3.2
+
+- **A calm "Gastos is updating" screen.** When the database is being updated, the app says so plainly: *Gastos is updating · Back around 9:15 PM*, with one button, **Keep logging offline**. Tap it and you're back on Log: everything you save waits on your phone and syncs by itself the moment the update ends. It shows once per update, only when you're online. Losing signal never shows it; that's still just *Offline*.
+- **"Sync paused."** While an update runs, the status at the top says *Sync paused* with an amber dot. Tap it for a plain explanation. Settings says the same, and renaming a name across past entries waits until it's done.
+- **Entries never get stuck when the database is busy.** Before 3.1.1, an upload that timed out while the database was busy could be mistaken for bad data and quietly stop trying. Now only genuinely invalid entries are set aside; everything else waits and retries, like being offline.
+- **A calmer note box** on Log: still easy to spot, no longer glowing.
 
 ## What's new in 3.1
 
@@ -50,13 +57,15 @@ remembers your usual wallet, and Save sits right under your thumb.
 
 ## Features
 
-- **Log an expense or income in seconds.** Filipino-first categories: Food, Transport, Load, Bills, *Padala*, Shopping, Health, plus your own.
+- **Log an expense or income in seconds.** Filipino-first categories: Food, Transport, Load, Bills, *Padala*, Shopping, Health, plus your own list behind *Other* (search, pin, rename, remove).
 - **Paid with:** cash, cards, e-wallets and digital banks (GCash, Maya, GoTyme, SeaBank…). Names only, never account numbers. Rename or remove them any time.
 - **History:** week, month, year or any dates you pick; spending and income charts; entries grouped by day; search. Tap an entry to see all its details, with Edit at the top.
-- **Offline-first sync:** every save lands on the phone first, then syncs. A small status dot shows *Synced / Saving / Offline / N waiting*.
+- **Offline-first sync:** every save lands on the phone first, then syncs. A small status dot shows *Synced / Saving / Offline / N waiting*, or *Sync paused* while the database is being updated.
 - **MPIN lock:** asked when the app opens fresh or after 30 minutes away, not every time you switch apps.
 - **Currency conversion** at today's rate. The original amounts are always kept, so switching back is exact.
-- **Light, dark or automatic,** installs to the home screen like an app, and an Android app on the Releases page.
+- **Eight color themes, light, dark or automatic.** Your theme follows your account onto every phone.
+- **FAQ in Settings,** searchable and available offline.
+- **Installs to the home screen** like an app, and an Android app on the Releases page.
 - **Backup and restore** to a file, with a safe "add what's missing" merge.
 - **Feedback from Settings** goes straight to the developer.
 
@@ -70,9 +79,13 @@ remembers your usual wallet, and Save sits right under your thumb.
 |---|---|---|---|
 | <img src="docs/screenshots/history.png" width="200"/> | <img src="docs/screenshots/pick-dates.png" width="200"/> | <img src="docs/screenshots/entry-details.png" width="200"/> | <img src="docs/screenshots/edit.png" width="200"/> |
 
-| Settings | Cards and e-wallets | MPIN | MPIN keypad |
+| Settings | Color themes | Your list behind Other | FAQ |
 |---|---|---|---|
-| <img src="docs/screenshots/settings.png" width="200"/> | <img src="docs/screenshots/cards-and-wallets.png" width="200"/> | <img src="docs/screenshots/mpin-login.png" width="200"/> | <img src="docs/screenshots/mpin-keypad.png" width="200"/> |
+| <img src="docs/screenshots/settings.png" width="200"/> | <img src="docs/screenshots/color-themes.png" width="200"/> | <img src="docs/screenshots/your-list.png" width="200"/> | <img src="docs/screenshots/faq.png" width="200"/> |
+
+| Cards and e-wallets | MPIN | MPIN keypad | Gastos is updating |
+|---|---|---|---|
+| <img src="docs/screenshots/cards-and-wallets.png" width="200"/> | <img src="docs/screenshots/mpin-login.png" width="200"/> | <img src="docs/screenshots/mpin-keypad.png" width="200"/> | <img src="docs/screenshots/updating.png" width="200"/> |
 
 <sub>Screenshots use sample data.</sub>
 
@@ -91,6 +104,10 @@ The design process came before the code, and every version goes through the same
    including an offline cold start and database tests that run against the real server and roll back.
 5. **Real-phone rounds.** Two rounds on an Android phone and an iPhone before going live.
 
+Version 3.2's updating switch went through the same loop, with one more step: before going live it was
+flipped for real on the live server while both a 3.2 preview and the older 3.1.1 app were in use, and the
+server logs confirmed the old app was refused once, kept its entry, and synced it when the switch went off.
+
 ## Tech stack
 
 | | |
@@ -105,7 +122,7 @@ The design process came before the code, and every version goes through the same
 
 ## Security notes
 
-- **Row Level Security** on every table: each account can only read and write its own rows (`supabase/schema.sql`, tests in `supabase/rls-test.sql` and `supabase/test-v3.sql`).
+- **Row Level Security** on every table: each account can only read and write its own rows (`supabase/schema.sql`, tests in `supabase/rls-test.sql`, `supabase/test-v3.sql` and `supabase/test-v4-status.sql`).
 - **Database constraints back the app's validation.** For example, a "Paid with" value that looks like a card number is rejected.
 - **The account MPIN is kept where the app can't read it.** It lives in a private schema with no API access, hashed with an HMAC keyed by a secret in Supabase Vault and then bcrypt. It's only checked through database functions that work on the signed-in account alone and never return the hash. Wrong tries are counted on the server, **5 across all phones**, then an email code is required; the functions can't be rolled back or raced to get more guesses. Changing or turning off the MPIN checks the current one in the same call. A forgotten MPIN is reset only with a fresh email code.
 - **Offline unlock** uses a PBKDF2 copy on each phone (100k iterations, random salt). It's replaced whenever the MPIN changes on another phone and needs an online check at least every 30 days.
@@ -114,6 +131,7 @@ The design process came before the code, and every version goes through the same
 - **The service worker never caches API traffic,** sign-in, or anything with a query string: only the app's own files.
 - **Bot check on sign-in:** Cloudflare Turnstile, enforced by Supabase Auth on "send me a code".
 - **Merge-restore is insert-only,** so an old backup can never overwrite newer data or bring deleted entries back.
+- **The "updating" switch is enforced by the database, not just the app.** It lives in a private one-row table no client can read or write; apps only see it through one read-only function. While it's on, a database trigger refuses every app write with a special "updating" answer (HTTP 503) that every app version, old or new, treats as "try again later", so nothing is lost and nothing half-written lands mid-update. Database changes themselves still go through.
 
 ## Run it yourself
 
@@ -125,7 +143,9 @@ npx expo start --web
 
 Set up the database by running, in the Supabase SQL editor: `supabase/schema.sql`, then
 `supabase/migration-v2.sql`, then `supabase/migration-v3.sql` (it creates its own MPIN secret in
-Vault), then `supabase/migration-v3.1.sql` (the color theme on the settings row). Feedback emails are optional: add a Brevo API key to Vault as `gastos_brevo_feedback_key`
+Vault), then `supabase/migration-v3.1.sql` (the color theme on the settings row), then
+`supabase/migration-v4-status.sql` (the "updating" switch; the SQL to turn it on and off is at the top of that file).
+Feedback emails are optional: add a Brevo API key to Vault as `gastos_brevo_feedback_key`
 and change the addresses in `send_feedback`. Without a key, feedback is still saved.
 
 For a web build, run `npx expo export -p web` and then `node scripts/write-sw.mjs dist`, which
