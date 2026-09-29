@@ -92,6 +92,17 @@ ok(!(await p.getByRole('tab', { name: 'Log' }).isVisible().catch(() => false)), 
 ok(srv.upserts.length === 0, '1d nothing uploaded while updating: ' + srv.upserts.length);
 await p.waitForTimeout(700);
 await p.screenshot({ path: `${SHOTS}/updating.png` });
+// On a wide laptop screen the button stays centred under the text (Joe's live test found it on the left).
+await p.setViewportSize({ width: 1400, height: 900 });
+await p.waitForTimeout(300);
+const off = await p.evaluate(() => {
+  const btn = [...document.querySelectorAll('[role="button"]')].find((e) => e.textContent === 'Keep logging offline').getBoundingClientRect();
+  const head = [...document.querySelectorAll('[role="heading"]')].find((e) => e.textContent === 'Gastos is updating').getBoundingClientRect();
+  return Math.round(Math.abs(btn.left + btn.width / 2 - (head.left + head.width / 2)));
+});
+ok(off <= 2, '1e wide screen: the button is centred under the title (off by ' + off + 'px)');
+await p.setViewportSize({ width: 390, height: 844 });
+await p.waitForTimeout(300);
 
 // 2. Tap the button: Log, "Sync paused", and the window is remembered.
 await p.getByRole('button', { name: 'Keep logging offline' }).click();

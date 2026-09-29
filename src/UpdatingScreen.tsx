@@ -47,6 +47,7 @@ const styles = StyleSheet.create({
   title: { marginTop: 22, textAlign: 'center' },
   center: { textAlign: 'center', marginTop: 8 },
   body: { marginTop: 14, lineHeight: 22, maxWidth: 300 },
-  button: { marginTop: 26, alignSelf: 'stretch', maxWidth: 320, width: '100%' },
+  // Centred and capped, so it doesn't slide to the left on a wide laptop screen (Joe's test, 2026-09-29).
+  button: { marginTop: 26, alignSelf: 'center', width: '100%', maxWidth: 320 },
   help: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 14 },
 });
