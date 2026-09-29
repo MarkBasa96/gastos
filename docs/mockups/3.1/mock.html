@@ -7,7 +7,7 @@
 @font-face{font-family:Inter;font-weight:700;src:url(../../../assets/fonts/Inter_700Bold.ttf)}
 @font-face{font-family:Poppins;font-weight:700;src:url(../../../assets/fonts/Poppins_700Bold.ttf)}
 *{box-sizing:border-box;margin:0}
-html,body{width:390px;height:844px;overflow:hidden}
+html,body{width:390px;height:100vh;overflow:hidden}
 body{font-family:Inter,sans-serif;background:var(--bg);color:var(--text);position:relative;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
 svg.i{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .screen{position:absolute;inset:0;overflow:hidden}
@@ -24,6 +24,23 @@ svg.i{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;f
 .hero .big{font-size:32px;font-weight:700;letter-spacing:-.6px;line-height:38px;margin-top:2px}
 .hero .sub{display:flex;gap:16px;margin-top:6px;font-size:13px;font-weight:600}
 .hero .sub span{display:flex;align-items:center;gap:4px}
+.hero.big{display:flex;flex-direction:column;padding:18px 18px 16px}
+.hero.big .c{display:flex;flex-direction:column;flex:1;justify-content:space-between}
+.hero.big .hgrp{display:flex;flex-direction:column}
+.hero.big .lbl{font-size:15px}
+.hero.big .big{font-size:40px;line-height:46px;letter-spacing:-1px;margin-top:2px}
+.hbar{margin-top:10px;height:8px;border-radius:4px;background:var(--hbarTrack);overflow:hidden}
+.hbar i{display:block;height:100%;border-radius:4px;background:var(--accent)}
+.hcap{font-size:12.5px;font-weight:500;margin-top:6px;opacity:.85}
+.hstats{display:flex;gap:10px;padding-top:12px}
+.hstat{flex:1;border-radius:14px;background:var(--hstat);border:1px solid var(--glassBorder);padding:8px 12px}
+.hstat s{text-decoration:none;display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:600;opacity:.8}
+.hstat b{display:block;font-size:16px;font-weight:700;margin-top:2px}
+.hero.big.mid .hstats,.hero.big.small .hstats,.hero.big.small .hbar,.hero.big.small .hcap{display:none}
+.hero.big .hsub{display:none}
+.hero.big.mid .hsub,.hero.big.small .hsub{display:flex;gap:16px;margin-top:auto;padding-top:8px;font-size:13px;font-weight:600}
+.hero.big.mid .hsub span,.hero.big.small .hsub span{display:flex;align-items:center;gap:4px}
+.hero.big.small .big{font-size:32px;line-height:38px;letter-spacing:-.6px}
 .seg{display:flex;width:200px;border:1px solid var(--border);border-radius:12px;padding:3px;gap:3px;background:var(--surface)}
 .seg div{flex:1;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;color:var(--muted)}
 .seg .on{background:var(--accentSoft);color:var(--text);font-weight:600}
@@ -150,10 +167,10 @@ function vars(key, mode){
   const L = th.L, D = th.D;
   if(!dark) return {accent:L.accent,accentText:'#FFFFFF',accentSoft:L.soft,bg:L.bg,bgAlt:L.bg,surface:'#FFFFFF',text:L.text,muted:L.muted,border:L.border,
     glass:'rgba(255,255,255,0.55)',glassBorder:'rgba(255,255,255,0.60)',nav:'rgba(255,255,255,0.72)',navBorder:'rgba(22,32,27,0.08)',navTop:'rgba(255,255,255,0.9)',
-    scrim:'rgba(17,21,19,0.22)',noteHint:L.muted,mesh:L.mesh,mo:[1,1,.9],dark:false};
+    scrim:'rgba(17,21,19,0.22)',noteHint:L.muted,hstat:'rgba(255,255,255,0.55)',hbarTrack:'rgba(255,255,255,0.7)',mesh:L.mesh,mo:[1,1,.9],dark:false};
   return {accent:D.accent,accentText:D.at,accentSoft:D.soft,bg:D.bg,bgAlt:D.bg,surface:D.surface,text:'#EDF1EE',muted:'#A3ADA7',border:D.border,
     glass:'rgba(26,32,29,0.42)',glassBorder:'rgba(255,255,255,0.08)',nav:hexa(D.surface,.74),navBorder:'rgba(255,255,255,0.07)',navTop:'rgba(255,255,255,0.18)',
-    scrim:'rgba(0,0,0,0.38)',noteHint:'#B7C0BA',mesh:D.mesh,mo:[1,1,.7],dark:true};
+    scrim:'rgba(0,0,0,0.38)',noteHint:'#B7C0BA',hstat:'rgba(0,0,0,0.22)',hbarTrack:'rgba(255,255,255,0.14)',mesh:D.mesh,mo:[1,1,.7],dark:true};
 }
 function hexa(h,a){const n=parseInt(h.slice(1),16);return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`}
 const V = vars(TH, MODE);
@@ -196,6 +213,11 @@ function mesh(c, o){
   ${c.map((col,i)=>`<radialGradient id="g${i}${col.slice(1)}"><stop offset="0" stop-color="${col}" stop-opacity="${o[i]}"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient>`).join('')}</defs>
   <ellipse cx="43" cy="6" rx="222" ry="136" fill="url(#g0${c[0].slice(1)})"/><ellipse cx="340" cy="130" rx="197" ry="124" fill="url(#g1${c[1].slice(1)})"/><ellipse cx="258" cy="0" rx="93" ry="77" fill="url(#g2${c[2].slice(1)})"/></svg>`;
 }
+const heroBig = () => `<div class="hero big ${V.dark?'':'shadow'}">${mesh(V.mesh,V.mo)}<div class="glass"></div><div class="c">
+  <div class="hgrp"><div class="lbl">Left this month</div><div class="big">₱7,713.72</div></div>
+  <div class="hgrp"><div class="hbar"><i style="width:46%"></i></div><div class="hcap">46% of what came in is spent · 2 days left</div></div>
+  <div class="hsub"><span>${ic('ur',15,2.2)}In ₱14,250.00</span><span>${ic('dr',15,2.2)}Out ₱6,536.28</span></div>
+  <div class="hstats"><div class="hstat"><s>${ic('ur',14,2.2)}In</s><b>₱14,250.00</b></div><div class="hstat"><s>${ic('dr',14,2.2)}Out</s><b>₱6,536.28</b></div></div></div></div>`;
 const hero = () => `<div class="hero ${V.dark?'':'shadow'}">${mesh(V.mesh,V.mo)}<div class="glass"></div><div class="c">
   <div class="lbl">Left this month</div><div class="big">₱7,713.72</div>
   <div class="sub"><span>${ic('ur',15,2.2)}In ₱14,250.00</span><span>${ic('dr',15,2.2)}Out ₱6,536.28</span></div></div></div>`;
@@ -220,7 +242,7 @@ function log(o={}){
   const amt = o.amt ? `<span class="amt v">${o.amt}</span>` : `<span class="amt">0.00</span>`;
   return `<div class="screen"><div class="page" style="${o.scroll?`transform:translateY(-${o.scroll}px)`:''}">
     <div class="top"><div class="h18">September</div><div class="sync">${ic('phone',13,2)}This phone only</div></div>
-    ${hero()}
+    ${o.big?heroBig():hero()}
     <div style="margin-top:16px" class="seg"><div class="on">Expense</div><div>Income</div></div>
     <div class="label">Amount</div>
     <div class="field big"><span class="sym">₱</span>${amt}</div>
@@ -322,8 +344,35 @@ else if (S==='grid8') html = log({cat:'Other', picked:'Coffee', amt:'120', note:
 else if (S==='olist') html = log({cat:'Other', amt:'120'}) + otherDlg('', false);
 else if (S==='osearch') html = log({cat:'Other', amt:'120'}) + otherDlg('co', false);
 else if (S==='onew') html = log({cat:'Other', amt:'40'}) + otherDlg('Tricycle', true);
+else if (S==='hero') html = log({big:true});
+else if (S==='herofilled') html = log({big:true, cat:'Other', picked:'Coffee', amt:'120', note:'Iced latte'});
 else if (S==='settings') html = settings();
 else if (S==='themes') html = settings() + themeSheet();
 else if (S==='faq') html = settings() + faqSheet();
 document.body.innerHTML = html;
+// The card grows into whatever room is left, so Save sits just above the tab bar (as the app will measure it).
+function fit() {
+  const hb = document.querySelector('.hero.big');
+  if (!hb) return;
+  hb.style.minHeight = '';
+  // Biggest layout that still fits above the tab bar, then stretch into what's left.
+  const room = () => document.querySelector('.nav').getBoundingClientRect().top - 12 - document.querySelector('.saverow').getBoundingClientRect().bottom;
+  for (const size of ['', 'mid', 'small']) {
+    hb.classList.remove('mid', 'small');
+    if (size) hb.classList.add(size);
+    if (room() >= 0 || size === 'small') break;
+  }
+  const r = room();
+  if (r > 0) {
+    // The card takes up to 60px more; anything beyond that widens the gaps below, so nothing sits empty.
+    const card = Math.min(r, 60);
+    hb.style.minHeight = (hb.getBoundingClientRect().height + card) + 'px';
+    const gaps = [...document.querySelectorAll('.page > .seg, .page > .label, .chips, .note, .saverow')];
+    const each = (r - card) / gaps.length;
+    for (const g of gaps) g.style.marginTop = (parseFloat(getComputedStyle(g).marginTop) + each) + 'px';
+  }
+  document.body.dataset.fit = '1';
+}
+fit();
+document.fonts.ready.then(fit);
 </script></body></html>

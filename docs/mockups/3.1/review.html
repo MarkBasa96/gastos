@@ -54,20 +54,39 @@ footer{margin-top:56px;color:var(--muted);font-size:14px}
 
 <div class="wrap">
 <header>
-  <div class="eyebrow">Mockup review · round 3</div>
+  <div class="eyebrow">Mockup review · round 4</div>
   <h1>Gastos 3.1</h1>
   <p class="lede">Six updates from Joe's list, drawn as phone-size mockups in light and dark before any code is written. Screens use sample data. Nothing here is built yet; say what to change and I'll do another round.</p>
   <div class="meta">
     <span class="pill">Suggested version: 3.1</span>
     <span class="pill warn">1 small database change</span>
-    <span class="pill">Round 1 built · round 3 for review</span>
+    <span class="pill">Rounds 3 and 4 for review</span>
   </div>
   <nav class="toc" aria-label="Sections">
-    <a href="#round2">Round 3 · Your list behind Other</a><a href="#built">Built: History details</a>
+    <a href="#round4">Round 4 · Bigger top card</a><a href="#round2">Round 3 · Your list behind Other</a><a href="#built">Built: History details</a>
     <a href="#themes">1 · Color themes</a><a href="#faq">2 · FAQ</a><a href="#blur">3 · Blurred pop-ups</a>
     <a href="#back">4 · Back button</a><a href="#other">5 · “Other” label</a><a href="#note">6 · Note</a><a href="#questions">Questions</a>
   </nav>
 </header>
+
+<section id="round4">
+  <h2><small>Round 4 · for review</small>A bigger top card that fills the screen</h2>
+  <p class="what">With the grid fixed at 8 tiles, the Log screen always has the same height, so the “Left this month” card can grow to use the empty space above the tab bar. It gets a bigger amount, a bar showing how much of this month's income is spent, and In and Out as two boxes.</p>
+  <ul class="points">
+    <li><b>It sizes itself to the phone.</b> The card uses the biggest layout that still fits, then stretches, so Save always sits just above the tab bar with no empty space.</li>
+    <li><b>Standard phones</b> (like the mockups, 844 tall) get the full card: amount, bar and the two boxes.</li>
+    <li><b>Tall phones</b> (915 tall and up): the card grows by up to about 60px. Anything more is shared out as slightly wider gaps between the sections, so there's never an empty band inside the card.</li>
+    <li><b>Short phones</b> (740 tall and under) keep today's compact card. There's no spare room on those, and a bigger card would push Save off the screen.</li>
+    <li><b>The bar:</b> with no income logged yet this month, it says so instead of showing 0%. If spending goes past income, the bar fills and says “You spent more than came in”, as the card does today.</li>
+  </ul>
+  <div class="shots">
+    <figure><img src="img/r4-herofilled-light.png" alt="Log screen with a taller top card: large amount, a spending bar and In and Out boxes; Save sits just above the tab bar"><figcaption>Standard phone, filled in</figcaption></figure>
+    <figure><img src="img/r4-hero-dark.png" alt="The taller top card in dark mode"><figcaption>Dark</figcaption></figure>
+    <figure><img src="img/r4-herofilled-pink.png" alt="The taller top card in the Baby pink theme"><figcaption>Baby pink theme</figcaption></figure>
+    <figure><img src="img/r4-hero-915.png" alt="A taller phone: the card grows a little and the gaps between sections widen evenly"><figcaption>Tall phone: card grows, gaps widen</figcaption></figure>
+    <figure><img src="img/r4-hero-740.png" alt="A shorter phone keeps today's compact card"><figcaption>Short phone: today's card</figcaption></figure>
+  </div>
+</section>
 
 <section id="round2">
   <h2><small>Round 3 · for review</small>Your list lives behind “Other”</h2>
