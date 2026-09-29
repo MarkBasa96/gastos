@@ -132,7 +132,7 @@ svg.i{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;f
 .odlg h3{font-size:20px;font-weight:700}
 .olab{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--muted);margin:14px 2px 8px}
 .obox{position:relative;height:266px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg)}
-.orow{display:flex;align-items:center;gap:12px;height:48px;padding:0 22px 0 14px;border-top:1px solid var(--border);font-size:16px;color:var(--text)}
+.orow{display:flex;align-items:center;gap:8px;height:48px;padding:0 22px 0 14px;border-top:1px solid var(--border);font-size:16px;color:var(--text)}
 .orow:first-child{border-top:0}
 .orow .ic{color:var(--muted);display:flex}
 .orow.on{background:var(--accentSoft);font-weight:600}
@@ -167,10 +167,10 @@ function vars(key, mode){
   const L = th.L, D = th.D;
   if(!dark) return {accent:L.accent,accentText:'#FFFFFF',accentSoft:L.soft,bg:L.bg,bgAlt:L.bg,surface:'#FFFFFF',text:L.text,muted:L.muted,border:L.border,
     glass:'rgba(255,255,255,0.55)',glassBorder:'rgba(255,255,255,0.60)',nav:'rgba(255,255,255,0.72)',navBorder:'rgba(22,32,27,0.08)',navTop:'rgba(255,255,255,0.9)',
-    scrim:'rgba(17,21,19,0.22)',noteHint:L.muted,hstat:'rgba(255,255,255,0.55)',hbarTrack:'rgba(255,255,255,0.7)',mesh:L.mesh,mo:[1,1,.9],dark:false};
+    scrim:'rgba(17,21,19,0.22)',danger:'#B3261E',noteHint:L.muted,hstat:'rgba(255,255,255,0.55)',hbarTrack:'rgba(255,255,255,0.7)',mesh:L.mesh,mo:[1,1,.9],dark:false};
   return {accent:D.accent,accentText:D.at,accentSoft:D.soft,bg:D.bg,bgAlt:D.bg,surface:D.surface,text:'#EDF1EE',muted:'#A3ADA7',border:D.border,
     glass:'rgba(26,32,29,0.42)',glassBorder:'rgba(255,255,255,0.08)',nav:hexa(D.surface,.74),navBorder:'rgba(255,255,255,0.07)',navTop:'rgba(255,255,255,0.18)',
-    scrim:'rgba(0,0,0,0.38)',noteHint:'#B7C0BA',hstat:'rgba(0,0,0,0.22)',hbarTrack:'rgba(255,255,255,0.14)',mesh:D.mesh,mo:[1,1,.7],dark:true};
+    scrim:'rgba(0,0,0,0.38)',danger:'#F2B8B5',noteHint:'#B7C0BA',hstat:'rgba(0,0,0,0.22)',hbarTrack:'rgba(255,255,255,0.14)',mesh:D.mesh,mo:[1,1,.7],dark:true};
 }
 function hexa(h,a){const n=parseInt(h.slice(1),16);return `rgba(${n>>16},${(n>>8)&255},${n&255},${a})`}
 const V = vars(TH, MODE);
@@ -306,12 +306,20 @@ function faqSheet(){
 // Most used first (Joe v3.1 round 2); pinned ones sit on top whatever their use.
 const MYLIST = ['Haircut','Tuition','Laundry','Condo dues','Cooking gas','Gym','Pets','Gifts','Rent','Netflix','Coffee','Parking'];
 const PINNED = ['Coffee','Parking'];
+function editDlg(){
+  return `<div class="veil" style="z-index:5"></div><div class="dialog" style="z-index:6"><h3>Edit “Coffee”</h3>
+    <div class="field focus" style="margin-top:14px">${ic('tag',18,2,'style="color:var(--accent)"')}<span style="flex:1">Coffee & snacks</span><span style="width:1.5px;height:20px;background:var(--accent)"></span>${ic('x',16,2,'style="color:var(--muted)"')}</div>
+    <div class="check" style="margin:12px 2px 0;align-items:flex-start"><div class="box on" style="margin-top:1px">${ic('check',14,3)}</div><span style="line-height:20px">Rename my 14 past entries too<br><span style="font-size:13px;color:var(--muted);font-weight:400">So History and the charts stay together</span></span></div>
+    <div class="row2"><div class="btn out">Cancel</div><div class="btn" style="font-size:16px">Save</div></div>
+    <div style="margin-top:14px;text-align:center;font-size:15px;font-weight:600;color:var(--danger)">Remove from my list</div>
+    <div style="margin-top:4px;text-align:center;font-size:12.5px;color:var(--muted)">Past entries keep their name if you remove it.</div></div>`;
+}
 function otherDlg(q, typed){
   const ql = (q||'').toLowerCase();
   const match = n => !ql || n.toLowerCase().includes(ql);
   const pinned = PINNED.filter(match), rest = MYLIST.filter(n => !PINNED.includes(n) && match(n));
   const hl = n => { if(!ql) return n; const i=n.toLowerCase().indexOf(ql); return n.slice(0,i)+'<mark>'+n.slice(i,i+ql.length)+'</mark>'+n.slice(i+ql.length); };
-  const row = (n, on) => `<div class="orow"><span class="ic">${ic('tag',18)}</span><span style="flex:1">${hl(n)}</span><span class="opin ${on?'on':''}">${ic('pin',17,2,on?'fill="currentColor"':'')}</span></div>`;
+  const row = (n, on) => `<div class="orow"><span class="ic">${ic('tag',18)}</span><span style="flex:1">${hl(n)}</span><span class="opin">${ic('pen',16,2)}</span><span class="opin ${on?'on':''}">${ic('pin',17,2,on?'fill="currentColor"':'')}</span></div>`;
   let rows = '';
   if (pinned.length) rows += `<div class="osec">Pinned</div>` + pinned.map(n => row(n, true)).join('');
   if (rest.length) rows += `<div class="osec">${ql ? 'In your list' : 'Most used'}</div>` + rest.map(n => row(n, false)).join('');
@@ -345,6 +353,7 @@ else if (S==='olist') html = log({cat:'Other', amt:'120'}) + otherDlg('', false)
 else if (S==='osearch') html = log({cat:'Other', amt:'120'}) + otherDlg('co', false);
 else if (S==='onew') html = log({cat:'Other', amt:'40'}) + otherDlg('Tricycle', true);
 else if (S==='hero') html = log({big:true});
+else if (S==='oedit') html = log({cat:'Other', amt:'120'}) + otherDlg('', false) + editDlg();
 else if (S==='herofilled') html = log({big:true, cat:'Other', picked:'Coffee', amt:'120', note:'Iced latte'});
 else if (S==='settings') html = settings();
 else if (S==='themes') html = settings() + themeSheet();
