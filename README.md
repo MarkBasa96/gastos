@@ -66,9 +66,9 @@ remembers your usual wallet, and Save sits right under your thumb.
 |---|---|---|---|
 | <img src="docs/screenshots/log-light.png" width="200"/> | <img src="docs/screenshots/log-dark.png" width="200"/> | <img src="docs/screenshots/confirm-save.png" width="200"/> | <img src="docs/screenshots/coin-shower.png" width="200"/> |
 
-| History | Pick dates | Two taps to edit | Edit |
+| History | Pick dates | Entry details | Edit |
 |---|---|---|---|
-| <img src="docs/screenshots/history.png" width="200"/> | <img src="docs/screenshots/pick-dates.png" width="200"/> | <img src="docs/screenshots/two-tap-edit.png" width="200"/> | <img src="docs/screenshots/edit.png" width="200"/> |
+| <img src="docs/screenshots/history.png" width="200"/> | <img src="docs/screenshots/pick-dates.png" width="200"/> | <img src="docs/screenshots/entry-details.png" width="200"/> | <img src="docs/screenshots/edit.png" width="200"/> |
 
 | Settings | Cards and e-wallets | MPIN | MPIN keypad |
 |---|---|---|---|
