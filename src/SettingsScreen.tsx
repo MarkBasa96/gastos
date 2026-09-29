@@ -89,6 +89,8 @@ export type Account = {
   lastSyncAt: number | null;
   syncedThisSession: boolean;
   userId: string | null;
+  /** While sync === 'paused': "Back around 9:15 PM." or similar, if Joe gave a time. */
+  backLine?: string | null;
 };
 
 function fmtDay(iso: string): string {
@@ -259,8 +261,14 @@ export function SettingsScreen({
     setRestore(null);
   }
 
-  const syncTitle =
-    account.sync === 'offline' || account.sync === 'waiting' ? 'Offline' : account.sync === 'saving' ? 'Saving…' : 'Backed up online';
+  const paused = account.sync === 'paused';
+  const syncTitle = paused
+    ? 'Sync paused'
+    : account.sync === 'offline' || account.sync === 'waiting'
+      ? 'Offline'
+      : account.sync === 'saving'
+        ? 'Saving…'
+        : 'Backed up online';
 
   return (
     <View style={{ flex: 1 }}>
@@ -278,23 +286,25 @@ export function SettingsScreen({
                 <T size={16} w="semibold" color={t.text}>{syncTitle}</T>
                 <T size={13} color={t.muted} style={{ marginTop: 2 }}>{account.email}</T>
               </View>
-              {account.sync === 'offline' || account.sync === 'waiting' ? (
-                <CloudOff size={22} color={t.muted} strokeWidth={1.8} />
+              {paused || account.sync === 'offline' || account.sync === 'waiting' ? (
+                <CloudOff size={22} color={paused ? t.warning : t.muted} strokeWidth={1.8} />
               ) : (
                 <CloudCheck size={22} color={t.accent} strokeWidth={1.8} />
               )}
             </View>
             <T size={13} color={t.muted} style={{ marginTop: 10, lineHeight: 18 }}>
-              {account.waiting > 0
-                ? `${account.waiting} ${account.waiting === 1 ? 'entry is' : 'entries are'} saved on this phone and will back up by themselves when you’re online.`
-                : `Last synced ${ago(account.lastSyncAt)}. Every entry saves to your phone first, then here.`}
+              {paused
+                ? `Gastos is updating.${account.backLine ? ' ' + account.backLine : ''} Everything you log saves on this phone and syncs by itself when it’s done.`
+                : account.waiting > 0
+                  ? `${account.waiting} ${account.waiting === 1 ? 'entry is' : 'entries are'} saved on this phone and will back up by themselves when you’re online.`
+                  : `Last synced ${ago(account.lastSyncAt)}. Every entry saves to your phone first, then here.`}
             </T>
             {account.rejected > 0 && (
               <T size={13} color={t.danger} style={{ marginTop: 8 }}>
                 {account.rejected === 1 ? '1 entry' : `${account.rejected} entries`} couldn’t be saved online (the details weren’t accepted). {account.rejected === 1 ? 'It stays' : 'They stay'} on this phone.
               </T>
             )}
-            {account.waiting > 0 && online && (
+            {account.waiting > 0 && online && !paused && (
               <Button label="Sync now" kind="text" icon={RefreshCw} onPress={onSyncNow} t={t} style={{ alignSelf: 'flex-start', paddingHorizontal: 0 }} />
             )}
           </>
@@ -522,7 +532,7 @@ export function SettingsScreen({
           </T>
         </>
       )}
-      <T size={13} w="medium" color={t.muted} style={{ textAlign: 'center', marginTop: 12 }}>Gastos 3.1{TEST_BUILD ? ` · test build ${TEST_BUILD}` : ''}</T>
+      <T size={13} w="medium" color={t.muted} style={{ textAlign: 'center', marginTop: 12 }}>Gastos 3.2{TEST_BUILD ? ` · test build ${TEST_BUILD}` : ''}</T>
       <T size={12} color={t.muted} style={{ textAlign: 'center', marginTop: 2 }}>Made by Joemark Basa</T>
 
       {/* ---- sheets ---- */}
@@ -796,9 +806,13 @@ function WalletsSheet({
       setBusy(true);
       try {
         await onRename(editing.n, n);
-      } catch {
+      } catch (e) {
         setBusy(false);
-        setErr('Couldn’t rename it. Check your internet and try again.');
+        setErr(
+          (e as Error)?.message === 'paused'
+            ? 'Renaming is paused while Gastos updates. Try again once it’s back.'
+            : 'Couldn’t rename it. Check your internet and try again.',
+        );
         return;
       }
       setBusy(false);

@@ -1,6 +1,6 @@
 // Run: node --experimental-strip-types src/syncCore.test.mjs   (Node 22)
 import assert from 'node:assert/strict';
-import { OfflineError, isDataError, pushWithFallback } from './syncCore.ts';
+import { OfflineError, backLine, isDataError, isUpdating, parseStatus, pushWithFallback } from './syncCore.ts';
 
 const rows = (ids) => ids.map((id) => ({ id }));
 // Fake server: refuses any statement that contains a "bad" row (like one Postgres statement would).
@@ -63,5 +63,48 @@ await assert.rejects(
   }),
   OfflineError,
 );
+
+// "Gastos is updating" (4.0): never rejected, never row-by-row, and the code survives so the app can pause.
+assert.equal(isDataError({ code: 'GASTOS_UPDATING' }), false);
+const updCalls = [];
+let updErr = null;
+try {
+  await pushWithFallback(rows(['a', 'b', 'c']), async (batch) => {
+    updCalls.push(batch.length);
+    return { code: 'GASTOS_UPDATING', message: 'Gastos is updating' };
+  });
+} catch (e) {
+  updErr = e;
+}
+assert.ok(updErr instanceof OfflineError, 'updating is thrown as OfflineError');
+assert.equal(updErr.code, 'GASTOS_UPDATING');
+assert.equal(isUpdating(updErr), true);
+assert.deepEqual(updCalls, [3], 'one try, no row-by-row, nothing rejected');
+assert.equal(isUpdating(new OfflineError('Failed to fetch')), false, 'plain offline is not updating');
+assert.equal(isUpdating({ code: '57014' }), false);
+assert.equal(isUpdating(null), false);
+
+// The switch, as read from public.app_status().
+const T0 = Date.parse('2026-09-29T12:00:00Z');
+let st = parseStatus({ updating: true, back_at: '2026-09-29T13:15:00+00:00', window_id: 'w1', min_build: 0, now: '2026-09-29T12:00:30Z' }, T0);
+assert.deepEqual(st, { updating: true, backAt: Date.parse('2026-09-29T13:15:00Z'), windowId: 'w1', minBuild: 0, skew: 30_000 });
+for (const bad of [{ updating: 'true' }, { updating: 1 }, { updating: null }, {}]) {
+  assert.equal(parseStatus(bad, T0).updating, false, JSON.stringify(bad) + ' is not updating');
+}
+assert.equal(parseStatus(null, T0), null, 'no answer = unknown');
+assert.equal(parseStatus('oops', T0), null);
+assert.equal(parseStatus({ updating: true, window_id: '' }, T0).windowId, null);
+
+// The return-time line, in the phone's own time zone.
+const fmt = (ms) => new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit' }).format(new Date(ms));
+assert.equal(backLine(null, 0, T0, 'en-US'), null, 'no time: leave it out');
+assert.equal(backLine(T0 + 45 * 60_000, 0, T0, 'en-US'), `Back around ${fmt(T0 + 45 * 60_000)}.`);
+assert.equal(backLine(T0 - 60_000, 0, T0, 'en-US'), 'Taking a little longer than planned.');
+assert.equal(backLine(T0 + 25 * 3600_000, 0, T0, 'en-US'), null, 'more than a day away: leave it out');
+// The phone's clock is 10 minutes slow, so its own clock would still say "future". The server clock decides.
+assert.equal(backLine(T0 + 5 * 60_000, 10 * 60_000, T0, 'en-US'), 'Taking a little longer than planned.');
+const nextDay = backLine(T0 + 20 * 3600_000, 0, T0, 'en-US');
+const sameDay = new Date(T0 + 20 * 3600_000).toDateString() === new Date(T0).toDateString();
+assert.match(nextDay, sameDay ? /^Back around \d/ : /^Back around [A-Z][a-z]{2} \d/, 'tomorrow gets a weekday: ' + nextDay);
 
 console.log('syncCore: all tests passed');

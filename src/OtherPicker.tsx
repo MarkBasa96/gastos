@@ -16,7 +16,7 @@ export type CategoryTools = {
   /** How many expenses use each name, for "most used first" and "rename my N past entries". */
   usage: Record<string, number>;
   togglePin: (name: string) => void;
-  /** Throws when past entries can't be renamed (signed in and offline). */
+  /** Throws when past entries can't be renamed (signed in and offline; Error('paused') while Gastos updates). */
   rename: (from: string, to: string, renamePast: boolean) => Promise<void>;
   remove: (name: string) => void;
 };
@@ -324,8 +324,12 @@ function EditName({ t, name, tools, onClose }: { t: Theme; name: string | null; 
     try {
       await tools.rename(n, target, past && count > 0);
       onClose();
-    } catch {
-      setErr('Renaming past entries needs the internet. Try again online, or untick the box to rename only the list.');
+    } catch (e) {
+      setErr(
+        (e as Error)?.message === 'paused'
+          ? 'Renaming past entries is paused while Gastos updates. Untick the box to rename only the list, or try again once it’s back.'
+          : 'Renaming past entries needs the internet. Try again online, or untick the box to rename only the list.',
+      );
     } finally {
       setBusy(false);
     }
