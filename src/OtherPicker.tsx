@@ -287,14 +287,22 @@ function EditName({ t, name, tools, onClose }: { t: Theme; name: string | null; 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [shown, setShown] = useState(name);
+  const [openFor, setOpenFor] = useState<string | null>(null);
   const input = useRef<TextInput>(null);
+  // Reset while rendering, not in an effect: an effect lands one render late, so anything typed in
+  // that gap got the old name glued onto it ("coffeeTuition").
+  if (name !== openFor) {
+    setOpenFor(name);
+    if (name) {
+      setShown(name);
+      setText(name);
+      setPast(true);
+      setBusy(false);
+      setErr(null);
+    }
+  }
   useEffect(() => {
     if (!name) return;
-    setShown(name);
-    setText(name);
-    setPast(true);
-    setBusy(false);
-    setErr(null);
     const timer = setTimeout(() => input.current?.focus(), 60);
     return () => clearTimeout(timer);
   }, [name]);
