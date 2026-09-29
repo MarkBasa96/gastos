@@ -1,9 +1,10 @@
-import { Calendar, Check, Lock, Pencil, StickyNote, Wallet, X } from './lucide';
+import { Calendar, Lock, Pencil, StickyNote, Wallet } from './lucide';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import {
   CATEGORIES,
   Expense,
+  cleanCategoryName,
   INCOME_CATEGORIES,
   Kind,
   MAX_CENTS,
@@ -16,7 +17,8 @@ import {
   parseLocalDate,
 } from './data';
 import { categoryIcon } from './icons';
-import { Chip, ConfirmDialog } from './motion';
+import { Chip } from './motion';
+import { CategoryTools, OtherPicker } from './OtherPicker';
 import { DateSheet, PaidWithSheet } from './sheets';
 import { Theme, radius } from './theme';
 import { Field, Label, Segmented, T } from './ui';
@@ -36,18 +38,6 @@ export type Draft = {
 };
 
 const OTHER = new Set(['Other', 'Other income']);
-const OTHER_MAX = 24; // same as Settings → Categories
-
-/** Names only: no control or direction-flipping characters, single spaces, at most 24 characters. */
-function cleanName(s: string): string {
-  return s
-    .replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, OTHER_MAX)
-    .trim();
-}
-
 export function emptyDraft(last?: { paidWith: string; group: PayGroup }): Draft {
   return {
     kind: 'expense',
@@ -63,16 +53,18 @@ export function emptyDraft(last?: { paidWith: string; group: PayGroup }): Draft 
 }
 
 export function draftFrom(e: Expense, labels: PayLabel[]): Draft {
+  const builtIn = (e.kind === 'income' ? INCOME_CATEGORIES : CATEGORIES).includes(e.category);
   const g = e.paidWith ? labels.find((l) => l.n === e.paidWith)?.g ?? 'card' : e.method === 'card' ? 'card' : 'cash';
   return {
     kind: e.kind,
     amount: (e.cents / 100).toFixed(2),
-    category: e.category,
+    // Her own names (and old v1 ones) live behind Other now (v3.1), so the grid stays at 8 tiles.
+    category: builtIn ? e.category : e.kind === 'income' ? 'Other income' : 'Other',
     paidWith: e.paidWith || (e.method === 'card' ? 'Card' : ''),
     group: g,
     date: e.date,
     note: e.note,
-    other: '',
+    other: builtIn ? '' : e.category,
     keepOther: false,
   };
 }
@@ -101,6 +93,10 @@ export const EntryForm = forwardRef<
     onChange: (d: Draft) => void;
     currency: string;
     customCategories: string[];
+    /** Her list behind Other: pins, most used, rename, remove (v3.1). */
+    catTools: CategoryTools;
+    /** Extra space (px) added above each section, so the Log screen fills the phone (v3.1). */
+    spread?: number;
     labels: PayLabel[];
     onAddLabel: (l: PayLabel) => void;
     onSubmit?: () => void;
@@ -109,7 +105,7 @@ export const EntryForm = forwardRef<
     /** Offer "Keep as a tile" for a named Other (the Log screen; editing doesn't). */
     canKeep?: boolean;
   }
->(function EntryForm({ t, draft, onChange, currency, customCategories, labels, onAddLabel, onSubmit, lockKind, canKeep }, ref) {
+>(function EntryForm({ t, draft, onChange, currency, customCategories, catTools, spread = 0, labels, onAddLabel, onSubmit, lockKind, canKeep }, ref) {
   const [tried, setTried] = useState(false);
   const [gridW, setGridW] = useState(0);
   const [paySheet, setPaySheet] = useState(false);
@@ -117,8 +113,6 @@ export const EntryForm = forwardRef<
   const [noteOpen, setNoteOpen] = useState(false);
   // Tapping Other asks "What was it?" in a pop-up (Joe v3.1). Cancel puts back what was picked before.
   const [otherAsk, setOtherAsk] = useState<{ category: string | null; other: string } | null>(null);
-  const [otherText, setOtherText] = useState('');
-  const [otherKeep, setOtherKeep] = useState(true);
   const amountRef = useRef<TextInput>(null);
   const set = (p: Partial<Draft>) => onChange({ ...draft, ...p });
 
@@ -134,20 +128,16 @@ export const EntryForm = forwardRef<
       : null;
   const categoryError = tried && !draft.category ? (draft.kind === 'income' ? 'Pick where it came from.' : 'Pick what it was for.') : null;
 
-  const cats = draft.kind === 'income' ? [...INCOME_CATEGORIES] : [...CATEGORIES, ...customCategories];
+  const cats = draft.kind === 'income' ? [...INCOME_CATEGORIES] : [...CATEGORIES];
   // Keep a legacy/removed category visible when editing an old entry that uses it.
   if (draft.category && !cats.includes(draft.category)) cats.push(draft.category);
 
   const otherOn = !!draft.category && OTHER.has(draft.category);
-  const otherName = otherOn ? cleanName(draft.other) : '';
+  const otherName = otherOn ? cleanCategoryName(draft.other) : '';
   // "food" typed into Other is just Food; any known name keeps its own spelling.
   const known = [...CATEGORIES, ...INCOME_CATEGORIES, ...customCategories].find((c) => c.toLowerCase() === otherName.toLowerCase());
   const isNewName = !!otherName && !known;
   const showKeep = !!canKeep && draft.kind === 'expense' && isNewName;
-  // The same rules, live, for what's typed in the pop-up.
-  const askName = cleanName(otherText);
-  const askKnown = askName ? [...CATEGORIES, ...INCOME_CATEGORIES, ...customCategories].find((c) => c.toLowerCase() === askName.toLowerCase()) : undefined;
-  const askKeep = !!canKeep && draft.kind === 'expense' && !!askName && !askKnown;
 
   useImperativeHandle(ref, () => ({
     take: () => {
@@ -196,7 +186,7 @@ export const EntryForm = forwardRef<
         />
       )}
 
-      <Label t={t} style={{ marginTop: 12 }}>Amount</Label>
+      <Label t={t} style={{ marginTop: 12 + spread }}>Amount</Label>
       <Field
         ref={amountRef}
         t={t}
@@ -212,7 +202,7 @@ export const EntryForm = forwardRef<
       />
       {amountError && <T size={14} color={t.danger} style={{ marginTop: 6 }}>{amountError}</T>}
 
-      <Label t={t} style={{ marginTop: 12 }}>{draft.kind === 'income' ? 'From where?' : 'What for?'}</Label>
+      <Label t={t} style={{ marginTop: 12 + spread }}>{draft.kind === 'income' ? 'From where?' : 'What for?'}</Label>
       <View style={styles.grid} onLayout={(e) => setGridW(e.nativeEvent.layout.width)}>
         {cats.map((c) => {
           const Icon = categoryIcon(c);
@@ -223,9 +213,7 @@ export const EntryForm = forwardRef<
               onPress={() => {
                 if (OTHER.has(c)) {
                   setOtherAsk({ category: draft.category, other: draft.other });
-                  setOtherText(on ? draft.other : '');
-                  setOtherKeep(on ? draft.keepOther : true);
-                  set({ category: c });
+                  set({ category: c, other: on ? draft.other : '' });
                   return;
                 }
                 set({ category: c });
@@ -267,7 +255,7 @@ export const EntryForm = forwardRef<
       {categoryError && <T size={14} color={t.danger} style={{ marginTop: 6 }}>{categoryError}</T>}
 
       {/* Layout C (Joe v3): wallet and date as chips, so Save sits right under What for? */}
-      <View style={styles.chips}>
+      <View style={[styles.chips, { marginTop: 12 + spread }]}>
         <Chip t={t} icon={Wallet} label={draft.paidWith || 'Cash'} chevron onPress={() => setPaySheet(true)}
           a11y={`${draft.kind === 'income' ? 'Received in' : 'Paid with'}: ${draft.paidWith || 'Cash'}`} />
         <Chip t={t} icon={Calendar} label={whenLabel(draft.date)} chevron onPress={() => setDateSheet(true)} a11y={`When: ${whenLabel(draft.date)}`} />
@@ -276,7 +264,7 @@ export const EntryForm = forwardRef<
       {/* The note gets its own full-width box in the theme colour, easy to spot (Joe v3.1). The
           keyboard still only opens when she taps it. */}
       {noteOpen ? (
-        <View style={{ marginTop: 12 }}>
+        <View style={{ marginTop: 12 + spread }}>
           <Field
             t={t}
             value={draft.note}
@@ -301,6 +289,7 @@ export const EntryForm = forwardRef<
           accessibilityLabel={draft.note.trim() ? `Note: ${draft.note.trim()}. Tap to change.` : 'Add a note'}
           style={(st: any) => [
             styles.note,
+            { marginTop: 12 + spread },
             { borderColor: t.accent, backgroundColor: t.accentSoft, transform: [{ scale: st.pressed ? 0.98 : 1 }] },
             Platform.OS === 'web' && st.focused ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: t.accent, outlineOffset: 2 } as any) : null,
           ]}
@@ -320,63 +309,22 @@ export const EntryForm = forwardRef<
         </Pressable>
       )}
 
-      <ConfirmDialog
+      <OtherPicker
         visible={!!otherAsk}
         t={t}
-        title={draft.kind === 'income' ? 'Where did it come from?' : 'What was it?'}
-        action="Done"
-        focusCancel={false}
+        kind={draft.kind}
+        initial={draft.other}
+        canKeep={!!canKeep}
+        tools={catTools}
         onCancel={() => {
           if (otherAsk) set({ category: otherAsk.category, other: otherAsk.other });
           setOtherAsk(null);
         }}
-        onConfirm={() => {
-          set({ other: otherText, keepOther: otherKeep });
+        onDone={(name, keep) => {
+          set({ other: name, keepOther: keep });
           setOtherAsk(null);
-          Keyboard.dismiss();
         }}
-      >
-        <Field
-          t={t}
-          value={otherText}
-          onChangeText={setOtherText}
-          placeholder={draft.kind === 'income' ? 'e.g. Bonus' : 'e.g. Haircut'}
-          maxLength={OTHER_MAX}
-          autoFocus
-          returnKeyType="done"
-          onSubmitEditing={() => {
-            set({ other: otherText, keepOther: otherKeep });
-            setOtherAsk(null);
-          }}
-          accessibilityLabel={draft.kind === 'income' ? 'Where did it come from?' : 'What was it?'}
-          left={<Pencil size={18} color={t.accent} strokeWidth={2} />}
-          right={
-            otherText ? (
-              <Pressable onPress={() => setOtherText('')} accessibilityRole="button" accessibilityLabel="Clear" hitSlop={10}>
-                <X size={16} color={t.muted} strokeWidth={2} />
-              </Pressable>
-            ) : undefined
-          }
-        />
-        {askKeep ? (
-          <Pressable
-            onPress={() => setOtherKeep(!otherKeep)}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: otherKeep }}
-            aria-checked={otherKeep}
-            style={styles.keep}
-          >
-            <View style={[styles.box, otherKeep ? { backgroundColor: t.accent, borderColor: t.accent } : { borderColor: t.border }]}>
-              {otherKeep && <Check size={14} color={t.accentText} strokeWidth={3} />}
-            </View>
-            <T size={14} w="medium" color={t.text} style={{ flex: 1 }}>Keep “{askName}” as a tile for next time</T>
-          </Pressable>
-        ) : (
-          <T size={13} color={t.muted} style={{ marginTop: 10, lineHeight: 18 }}>
-            {askKnown ? `Saves under ${askKnown}.` : `Optional. Leave it empty to save as plain ${draft.kind === 'income' ? 'Other income' : 'Other'}.`}
-          </T>
-        )}
-      </ConfirmDialog>
+      />
 
       <PaidWithSheet
         visible={paySheet}

@@ -36,6 +36,7 @@ export { default as Moon } from 'lucide-react-native/icons/moon';
 export { default as Palette } from 'lucide-react-native/icons/palette';
 export { default as PartyPopper } from 'lucide-react-native/icons/party-popper';
 export { default as Pencil } from 'lucide-react-native/icons/pencil';
+export { default as Pin } from 'lucide-react-native/icons/pin';
 export { default as Plus } from 'lucide-react-native/icons/plus';
 export { default as Receipt } from 'lucide-react-native/icons/receipt';
 export { default as RefreshCw } from 'lucide-react-native/icons/refresh-cw';

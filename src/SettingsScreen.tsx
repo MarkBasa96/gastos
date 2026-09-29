@@ -663,7 +663,7 @@ export function SettingsScreen({
       </Sheet>
 
       <Sheet visible={catSheet} onClose={() => setCatSheet(false)} t={t} title="Categories"
-        subtitle="The 8 built-in ones always stay. Add your own; they appear after them when you log.">
+        subtitle="The 8 built-in tiles always stay. Your own live behind Other when you log.">
         <Card t={t}>
           {settings.categories.length === 0 ? (
             <Row t={t} first>

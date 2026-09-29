@@ -137,7 +137,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'How do I add my own category?',
-    a: 'When logging, tap Other and type a name, like “Haircut”. Leave “Keep as a tile” ticked and it shows up next time. You can also add and remove them in Settings → Categories.',
+    a: 'When logging, tap Other and type a name, like “Haircut”. Leave “Save to my list” ticked and it’s there next time you tap Other. Pin the ones you use most to keep them on top, or tap the pencil to rename or remove one. Settings → Categories lists them too.',
   },
   {
     q: 'How do I change the color?',

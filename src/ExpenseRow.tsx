@@ -4,6 +4,7 @@ import { Pencil, StickyNote } from './lucide';
 import { Expense, PayLabel, Rates, SHORT_MONTHS, convert, formatMoney, paidLabel, parseLocalDate } from './data';
 import { useBackHandler } from './backNav';
 import { EntryForm, EntryFormHandle, draftFrom, whenLabel } from './EntryForm';
+import type { CategoryTools } from './OtherPicker';
 import { play } from './fx';
 import { ConfirmDialog } from './motion';
 import { categoryIcon } from './icons';
@@ -205,6 +206,7 @@ export function EditSheet({
   t,
   currency,
   customCategories,
+  catTools,
   labels,
   onAddLabel,
   onClose,
@@ -215,6 +217,7 @@ export function EditSheet({
   t: Theme;
   currency: string;
   customCategories: string[];
+  catTools: CategoryTools;
   labels: PayLabel[];
   onAddLabel: (l: PayLabel) => void;
   onClose: () => void;
@@ -269,6 +272,7 @@ export function EditSheet({
         onChange={setDraft}
         currency={e.currency}
         customCategories={customCategories}
+        catTools={catTools}
         labels={labels}
         onAddLabel={onAddLabel}
         lockKind

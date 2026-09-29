@@ -29,7 +29,8 @@ remembers your usual wallet, and Save sits right under your thumb.
 
 - **Color themes.** Eight to pick from in Settings: Gastos green, Baby pink, Lavender, Ocean blue, Mint teal, Sunset coral, Sunflower and Latte. Light and dark both follow it, and when you're signed in it follows your account onto every phone.
 - **FAQ in Settings.** Quick answers, searchable, that work offline: where entries are saved, how safe your data is, backups, the MPIN, and more.
-- **Name your own "Other".** Tap Other and a pop-up asks what it was ("Haircut"). It saves under that name and, if you like, stays as a tile for next time.
+- **Your own categories live behind "Other".** Tap Other and a pop-up asks what it was ("Haircut"): pick one from your list, search it, or type a new one. Pin favourites to the top; the rest are sorted by most used. The pencil renames one (and, if you like, your past entries with it) or removes it. The main grid always keeps its 8 tiles.
+- **A bigger top card** with a bar of how much of this month's income is spent. It sizes itself so the Log screen fills the phone with Save just above the tab bar.
 - **A note you can't miss.** The note is now a full-width box above Save, and the save pop-up shows it on its own line.
 - **Tap an entry in History to see everything about it** (amount, date, wallet, note, when it was added), with an Edit button at the top.
 - **Pop-ups blur the screen behind them.**

@@ -33,6 +33,7 @@ import {
   pull,
   push,
   pushNewOnly,
+  renameCategory as renameCategoryOnServer,
   renamePaidWith,
   saveDirty,
   sendFeedback,
@@ -49,6 +50,7 @@ import {
   Settings,
   cleanCategories,
   cleanLabels,
+  cleanPinned,
   fetchRates,
   loadExpenses,
   loadRates,
@@ -62,6 +64,7 @@ import { EditSheet } from './src/ExpenseRow';
 import { prefersReducedMotion, setSoundsOn } from './src/fx';
 import { HistoryScreen } from './src/HistoryScreen';
 import { LogScreen } from './src/LogScreen';
+import type { CategoryTools } from './src/OtherPicker';
 import { MAX_TRIES, clearPin, loadPin, maskEmail, pinSupported, tryPin, weakPin } from './src/pin';
 import { SettingsScreen } from './src/SettingsScreen';
 import { AppearanceContext, ColorTheme, ColorThemeContext, Theme, cardRadius, useTheme } from './src/theme';
@@ -458,7 +461,8 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
   );
 
   const setSettings = useCallback(
-    (s: Settings) => {
+    (next: Settings) => {
+      const s = { ...next, pinned: cleanPinned(next.pinned, next.categories) }; // a removed name drops its pin
       settingsRef.current = s;
       setSettingsState(s);
       onLook(s);
@@ -483,6 +487,39 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
       if (next.length > settingsRef.current.categories.length) setSettings({ ...settingsRef.current, categories: next });
     },
     [setSettings],
+  );
+
+  const togglePin = useCallback(
+    (n: string) => {
+      const s = settingsRef.current;
+      setSettings({ ...s, pinned: s.pinned.includes(n) ? s.pinned.filter((p) => p !== n) : [...s.pinned, n] });
+    },
+    [setSettings],
+  );
+
+  const removeCategory = useCallback(
+    (n: string) => {
+      const s = settingsRef.current;
+      setSettings({ ...s, categories: s.categories.filter((c) => c !== n) }); // past entries keep their name
+    },
+    [setSettings],
+  );
+
+  /**
+   * Rename one of her own names (v3.1). `to` already has the list's spelling when it merges into an
+   * existing name. Past entries: server first, one column (like the wallet rename), then this phone.
+   */
+  const renameCategory = useCallback(
+    async (from: string, to: string, past: boolean) => {
+      if (past && sessionRef.current) await renameCategoryOnServer(from, to);
+      if (past) commit(expensesRef.current.map((e) => (e.kind === 'expense' && e.category === from ? { ...e, category: to } : e)));
+      const s = settingsRef.current;
+      // cleanCategories drops a built-in name and any duplicate, so a merge leaves one entry.
+      const categories = cleanCategories(s.categories.map((c) => (c === from ? to : c)));
+      setSettings({ ...s, categories, pinned: s.pinned.map((p) => (p === from ? to : p)) });
+      if (past && sessionRef.current) syncSoon();
+    },
+    [commit, setSettings, syncSoon],
   );
 
   /** The new look grows as a circle out of the tapped icon (Joe v3). Instant under reduced motion. */
@@ -870,6 +907,12 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
 
   // ---------- derived ----------
   const visible = useMemo(() => (expenses ?? []).filter((e) => !e.deleted), [expenses]);
+  // The Other list (v3.1): her own names, pins, and how often each is used, for "most used first".
+  const catTools = useMemo<CategoryTools>(() => {
+    const usage: Record<string, number> = {};
+    for (const e of visible) if (e.kind === 'expense') usage[e.category] = (usage[e.category] ?? 0) + 1;
+    return { list: settings.categories, pinned: settings.pinned, usage, togglePin, rename: renameCategory, remove: removeCategory };
+  }, [visible, settings.categories, settings.pinned, togglePin, renameCategory, removeCategory]);
   const loadingCloud = !!session && !syncedThisSession && visible.length === 0 && online && !offline;
   const syncState: SyncState = !session
     ? 'local'
@@ -901,7 +944,7 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
       showTabs = true;
       body = (
         <LogScreen t={t} expenses={[]} settings={settings} rates={rates} sync="saving" waiting={0} loading
-          onSyncPress={() => {}} onAdd={() => {}} onUndo={() => {}} onEdit={() => {}} onAddLabel={() => {}} onAddCategory={() => {}} />
+          onSyncPress={() => {}} onAdd={() => {}} onUndo={() => {}} onEdit={() => {}} onAddLabel={() => {}} onAddCategory={() => {}} catTools={catTools} />
       );
     } else {
       body = <BrandLoader t={t} />;
@@ -1030,6 +1073,7 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
           onEdit={setEditing}
           onAddLabel={addLabel}
           onAddCategory={addCategory}
+          catTools={catTools}
         />
       );
     } else if (tab === 'history') {
@@ -1108,6 +1152,7 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
           t={t}
           currency={settings.currency}
           customCategories={settings.categories}
+          catTools={catTools}
           labels={settings.paymentLabels}
           onAddLabel={addLabel}
           onClose={() => setEditing(null)}
