@@ -28,8 +28,10 @@ import { SavedPill } from './src/celebrate';
 import {
   Dirty,
   clearSyncState,
+  fetchAppStatus,
   loadDirty,
   loadLastUser,
+  loadUpdateSeen,
   pull,
   push,
   pushNewOnly,
@@ -38,10 +40,13 @@ import {
   saveDirty,
   sendFeedback,
   saveLastUser,
+  saveUpdateSeen,
   setSettingsDirty,
   supabase,
   syncSettings,
 } from './src/cloud';
+import { AppStatus, backLine, isUpdating } from './src/syncCore';
+import { UpdatingScreen } from './src/UpdatingScreen';
 import {
   DEFAULT_SETTINGS,
   Expense,
@@ -98,7 +103,7 @@ async function readPinView(uid: string | null): Promise<PinView> {
   return 'none';
 }
 
-const APP_VERSION = '3.1.1';
+const APP_VERSION = '3.2.0';
 // Joe v3: no lock when switching apps; only a fresh open, or after this long away (Kenshin L4).
 const IDLE_LOCK_MS = 30 * 60_000;
 
@@ -194,6 +199,14 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
   const [online, setOnline] = useState(Platform.OS !== 'web' || navigator.onLine !== false);
   const [editing, setEditing] = useState<Expense | null>(null);
   const [switchAsk, setSwitchAsk] = useState(false);
+  // "Gastos is updating" (4.0). Memory only: the last clean answer from the server, or a GASTOS_UPDATING
+  // refusal. Never saved on the phone, so a failed check can't strand her in "Sync paused" (Kenshin M4).
+  const [status, setStatusState] = useState<AppStatus | null>(null);
+  const statusRef = useRef<AppStatus | null>(null);
+  const lastKnownStatus = useRef<AppStatus | null>(null);
+  // The update window she already tapped "Keep logging offline" for (the one thing that is saved).
+  const [updateSeen, setUpdateSeen] = useState<string | null>(null);
+  const [pausedSheet, setPausedSheet] = useState(false);
   // Appearance circle without View Transitions (iPhones before iOS 18): a circle in the new colour grows
   // from the tapped icon, the theme switches under it, then it fades (Joe, v3 test round 2).
   const [reveal, setReveal] = useState<{ x: number; y: number; end: number; color: string; key: number } | null>(null);
@@ -257,6 +270,52 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
     saveDirty(d);
   }, []);
 
+  // ---------- "Gastos is updating" (4.0, Joe's C1; Kenshin design review 2026-09-29) ----------
+  useEffect(() => {
+    loadUpdateSeen().then(setUpdateSeen).catch(() => {});
+  }, []);
+
+  const setStatus = useCallback((s: AppStatus | null) => {
+    statusRef.current = s;
+    if (s) lastKnownStatus.current = s;
+    setStatusState(s);
+  }, []);
+
+  /** Ask the server. true / false = a clean answer; null = couldn't tell, which is never "updating". */
+  const refreshStatus = useCallback(async (): Promise<boolean | null> => {
+    const s = await fetchAppStatus();
+    if (!s) {
+      // Couldn't tell while paused: drop to "unknown" and let the next sync find out. If Joe is still
+      // updating, the database refuses with GASTOS_UPDATING and she's paused again (Kenshin M4).
+      if (statusRef.current?.updating) setStatus(null);
+      return null;
+    }
+    setStatus(s);
+    return s.updating;
+  }, [setStatus]);
+
+  /** The database refused a write because Joe is updating: pause, keeping the last known window and time. */
+  const pauseFromServer = useCallback(() => {
+    const k = lastKnownStatus.current;
+    setStatus({ backAt: k?.backAt ?? null, windowId: k?.windowId ?? null, minBuild: k?.minBuild ?? 0, skew: k?.skew ?? 0, updating: true });
+  }, [setStatus]);
+
+  /** A server-first action (the renames). If the switch turned on after our last check, say "paused". */
+  const serverStep = useCallback(
+    async (step: () => Promise<void>) => {
+      try {
+        await step();
+      } catch (e) {
+        if (isUpdating(e)) {
+          pauseFromServer();
+          throw new Error('paused');
+        }
+        throw e;
+      }
+    },
+    [pauseFromServer],
+  );
+
   // ---------- sync ----------
   const syncNow = useCallback(async () => {
     const s = sessionRef.current;
@@ -273,6 +332,9 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
     // If the user signs out (or someone else signs in) mid-sync, drop the results (Kenshin L2).
     const stillSame = () => sessionRef.current?.user.id === uid;
     try {
+      // The switch first. A clean "updating" pauses quietly (never "Offline"); "couldn't tell" carries on,
+      // and the database gate answers for itself (Kenshin M1).
+      if ((await refreshStatus()) === true) return;
       const { done, rejected } = await push(expensesRef.current, { ...dirtyRef.current }, uid);
       if (!stillSame()) return;
       // Only clear entries that didn't change again while the upload was in flight.
@@ -301,17 +363,37 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
       setOffline(false);
       setLastSyncAt(Date.now());
       setSyncedThisSession(true);
-    } catch {
-      setOffline(true);
+    } catch (e) {
+      if (isUpdating(e)) pauseFromServer();
+      else setOffline(true);
     } finally {
       syncingRef.current = false;
       setSyncingState(false);
       if (again.current) {
         again.current = false;
-        syncNow();
+        // While paused, a queued "sync again" would only ask and stop; skip it so nothing loops (Kenshin M4).
+        if (!statusRef.current?.updating) syncNow();
       }
     }
-  }, [commit, writeDirty]);
+  }, [commit, writeDirty, refreshStatus, pauseFromServer]);
+
+  // While paused: ask again every minute when the app is on screen, and sync once the moment it ends.
+  const paused = status?.updating === true;
+  useEffect(() => {
+    if (!paused) return;
+    const id = setInterval(() => {
+      if (Platform.OS === 'web' && typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      refreshStatus();
+    }, 60_000);
+    return () => clearInterval(id);
+  }, [paused, refreshStatus]);
+  const wasPaused = useRef(false);
+  useEffect(() => {
+    if (wasPaused.current && !paused) syncNow();
+    // The explainer closes with the pause, or it would pop up by itself at the next update.
+    if (!paused) setPausedSheet(false);
+    wasPaused.current = paused;
+  }, [paused, syncNow]);
 
   const syncSoon = useCallback(() => {
     if (debounce.current) clearTimeout(debounce.current);
@@ -511,7 +593,9 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
    */
   const renameCategory = useCallback(
     async (from: string, to: string, past: boolean) => {
-      if (past && sessionRef.current) await renameCategoryOnServer(from, to);
+      // Past entries are renamed on the server first, which is refused while Gastos updates (Kenshin M5).
+      if (past && sessionRef.current && statusRef.current?.updating) throw new Error('paused');
+      if (past && sessionRef.current) await serverStep(() => renameCategoryOnServer(from, to));
       if (past) commit(expensesRef.current.map((e) => (e.kind === 'expense' && e.category === from ? { ...e, category: to } : e)));
       const s = settingsRef.current;
       // cleanCategories drops a built-in name and any duplicate, so a merge leaves one entry.
@@ -519,7 +603,7 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
       setSettings({ ...s, categories, pinned: s.pinned.map((p) => (p === from ? to : p)) });
       if (past && sessionRef.current) syncSoon();
     },
-    [commit, setSettings, syncSoon],
+    [commit, setSettings, syncSoon, serverStep],
   );
 
   /** The new look grows as a circle out of the tapped icon (Joe v3). Instant under reduced motion. */
@@ -558,11 +642,12 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
   /** Wallet rename: server first (one column), then this phone's copies without marking them to upload (Kenshin M11). */
   const renameLabel = useCallback(
     async (from: string, to: string) => {
-      if (sessionRef.current) await renamePaidWith(from, to);
+      if (sessionRef.current && statusRef.current?.updating) throw new Error('paused');
+      if (sessionRef.current) await serverStep(() => renamePaidWith(from, to));
       commit(expensesRef.current.map((e) => (e.paidWith === from ? { ...e, paidWith: to } : e)));
       if (sessionRef.current) syncSoon();
     },
-    [commit, syncSoon],
+    [commit, syncSoon, serverStep],
   );
 
   // ---------- accounts ----------
@@ -905,6 +990,20 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
   // Setting a new MPIN after a forgotten one has no way out (Kenshin H2): Back does nothing there.
   useBackHandler(screen === 'setpin' && pinMode.current === 'reset', () => {});
 
+  // "Gastos is updating" (C1): online, signed in, past the MPIN (Kenshin L5), and not yet dismissed for this
+  // window. Offline she never sees it. Back = "Keep logging offline".
+  const updateWindow = status?.windowId ?? null;
+  const showUpdating =
+    !!session && online && paused && !!updateWindow && updateWindow !== updateSeen && !(pin !== 'none' && !unlocked) && screen === null;
+  const keepLoggingOffline = useCallback(() => {
+    if (!updateWindow) return;
+    setUpdateSeen(updateWindow);
+    saveUpdateSeen(updateWindow).catch(() => {});
+    setTab('log');
+  }, [updateWindow]);
+  useBackHandler(showUpdating, keepLoggingOffline);
+  const backText = status ? backLine(status.backAt, status.skew, Date.now()) : null;
+
   // ---------- derived ----------
   const visible = useMemo(() => (expenses ?? []).filter((e) => !e.deleted), [expenses]);
   // The Other list (v3.1): her own names, pins, and how often each is used, for "most used first".
@@ -916,7 +1015,9 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
   const loadingCloud = !!session && !syncedThisSession && visible.length === 0 && online && !offline;
   const syncState: SyncState = !session
     ? 'local'
-    : syncing
+    : paused
+      ? 'paused'
+      : syncing
       ? 'saving'
       : offline || !online
         ? pending > 0
@@ -1055,6 +1156,8 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
         }}
       />
     );
+  } else if (showUpdating) {
+    body = <UpdatingScreen t={t} back={backText} onContinue={keepLoggingOffline} />;
   } else {
     showTabs = true;
     if (tab === 'log') {
@@ -1067,7 +1170,15 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
           sync={syncState}
           waiting={pending}
           loading={loadingCloud}
-          onSyncPress={() => (session ? syncNow() : setScreen('signin'))}
+          onSyncPress={() => {
+            if (!session) return setScreen('signin');
+            if (paused) {
+              setPausedSheet(true);
+              refreshStatus();
+              return;
+            }
+            syncNow();
+          }}
           onAdd={add}
           onUndo={remove}
           onEdit={setEditing}
@@ -1101,6 +1212,7 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
             lastSyncAt,
             syncedThisSession,
             userId: session?.user.id ?? null,
+            backLine: backText,
           }}
           pinOn={pinSet}
           pinSupported={pinSupported()}
@@ -1182,6 +1294,14 @@ function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorThem
           t={t}
         />
         <Button label="Cancel" kind="text" onPress={() => setSwitchAsk(false)} t={t} />
+      </Sheet>
+      <Sheet
+        visible={pausedSheet && paused}
+        onClose={() => setPausedSheet(false)}
+        t={t}
+        title="Sync paused"
+        subtitle={`Joe’s doing some work behind the scenes.${backText ? ' ' + backText : ''} Keep logging as normal: everything saves to your phone and will sync once this is done. Something look wrong? Message Joe.`}>
+        <Button label="Got it" onPress={() => setPausedSheet(false)} t={t} />
       </Sheet>
       {reveal && <RevealVeil key={reveal.key} x={reveal.x} y={reveal.y} end={reveal.end} color={reveal.color} onDone={() => setReveal(null)} />}
       <SavedPill t={t} show={exitHint} label="Press back again to exit" check={false} />

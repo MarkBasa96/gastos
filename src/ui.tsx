@@ -471,11 +471,22 @@ export function GlassHero({ t, children }: { t: Theme; children: ReactNode }) {
 
 // ---------- Sync indicator ----------
 
-export type SyncState = 'synced' | 'saving' | 'offline' | 'waiting' | 'local';
+// 'paused' (4.0): Joe has the "updating" switch on. Its own warm dot, so it never reads as "Offline" (Erina).
+export type SyncState = 'synced' | 'saving' | 'offline' | 'waiting' | 'local' | 'paused';
 
 export function SyncBadge({ state, waiting, t, onPress }: { state: SyncState; waiting: number; t: Theme; onPress?: () => void }) {
   const label =
-    state === 'synced' ? 'Synced' : state === 'saving' ? 'Saving…' : state === 'offline' ? 'Offline' : state === 'waiting' ? `${waiting} waiting` : 'This phone only';
+    state === 'synced'
+      ? 'Synced'
+      : state === 'saving'
+        ? 'Saving…'
+        : state === 'offline'
+          ? 'Offline'
+          : state === 'waiting'
+            ? `${waiting} waiting`
+            : state === 'paused'
+              ? 'Sync paused'
+              : 'This phone only';
   const breathe = useRef(new Animated.Value(1)).current;
   const [still, setStill] = useState(false);
   useEffect(() => {
@@ -504,7 +515,7 @@ export function SyncBadge({ state, waiting, t, onPress }: { state: SyncState; wa
         <Animated.View
           style={[
             styles.dot,
-            hollow ? { borderWidth: 1.5, borderColor: t.muted } : { backgroundColor: t.accent },
+            hollow ? { borderWidth: 1.5, borderColor: t.muted } : { backgroundColor: state === 'paused' ? t.warning : t.accent },
             state === 'synced' && { opacity: breathe, transform: [{ scale: breathe.interpolate({ inputRange: [0.35, 1], outputRange: [0.8, 1] }) }] },
             state === 'saving' && { opacity: 0.6 },
           ]}
@@ -540,7 +551,7 @@ export function PigIcon({ t, size }: { t: Theme; size: number }) {
   );
 }
 
-export function PigLoader({ t, label }: { t: Theme; label?: string }) {
+export function PigLoader({ t, label, turnMs = 1600 }: { t: Theme; label?: string; turnMs?: number }) {
   const S = 88;
   const R = 34;
   const spin = useRef(new Animated.Value(0)).current;
@@ -551,11 +562,11 @@ export function PigLoader({ t, label }: { t: Theme; label?: string }) {
   useEffect(() => {
     if (still) return;
     const loop = Animated.loop(
-      Animated.timing(spin, { toValue: 1, duration: 1600, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' }),
+      Animated.timing(spin, { toValue: 1, duration: turnMs, easing: Easing.linear, useNativeDriver: Platform.OS !== 'web' }),
     );
     loop.start();
     return () => loop.stop();
-  }, [spin, still]);
+  }, [spin, still, turnMs]);
   return (
     <View style={styles.loaderWrap} accessibilityRole="progressbar" accessibilityLabel={label ?? 'Loading'}>
       <View style={{ width: S, height: S }}>

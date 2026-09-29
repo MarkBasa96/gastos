@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { Expense, Settings, cleanCategories, cleanColorTheme, cleanLabels, cleanPinned, normalize } from './data';
-import { pushWithFallback } from './syncCore';
+import { AppStatus, parseStatus, pushWithFallback } from './syncCore';
 
 // Both values are public by design (they ship inside the app). Row Level Security protects the data.
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
@@ -13,6 +13,28 @@ export const supabase =
         auth: { storage: AsyncStorage, persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
       })
     : null;
+
+// ---- The "Gastos is updating" switch (4.0, Kenshin review 2026-09-29) ----
+// Read live every time (an RPC is a POST: never cached). Never saved on the phone as the truth (Kenshin M4).
+const STATUS_TIMEOUT_MS = 4000;
+
+/** null = couldn't tell (offline, slow, or an older database). Never treat null as "updating". */
+export async function fetchAppStatus(): Promise<AppStatus | null> {
+  if (!supabase) return null;
+  try {
+    const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), STATUS_TIMEOUT_MS));
+    const res = await Promise.race([supabase.rpc('app_status'), timeout]);
+    if (!res || res.error) return null;
+    return parseStatus(res.data, Date.now());
+  } catch {
+    return null;
+  }
+}
+
+// Which update window she already tapped "Keep logging offline" for, so it shows once per window.
+const UPDATE_SEEN_KEY = 'gastos.v1.updateSeen';
+export const loadUpdateSeen = () => AsyncStorage.getItem(UPDATE_SEEN_KEY);
+export const saveUpdateSeen = (windowId: string) => AsyncStorage.setItem(UPDATE_SEEN_KEY, windowId);
 
 // ---- Local sync bookkeeping ----
 // dirty: id -> rev of the local change still waiting to reach the cloud.
