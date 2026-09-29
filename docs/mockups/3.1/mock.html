@@ -311,8 +311,8 @@ function editDlg(){
     <div class="field focus" style="margin-top:14px">${ic('tag',18,2,'style="color:var(--accent)"')}<span style="flex:1">Coffee & snacks</span><span style="width:1.5px;height:20px;background:var(--accent)"></span>${ic('x',16,2,'style="color:var(--muted)"')}</div>
     <div class="check" style="margin:12px 2px 0;align-items:flex-start"><div class="box on" style="margin-top:1px">${ic('check',14,3)}</div><span style="line-height:20px">Rename my 14 past entries too<br><span style="font-size:13px;color:var(--muted);font-weight:400">So History and the charts stay together</span></span></div>
     <div class="row2"><div class="btn out">Cancel</div><div class="btn" style="font-size:16px">Save</div></div>
-    <div style="margin-top:14px;text-align:center;font-size:15px;font-weight:600;color:var(--danger)">Remove from my list</div>
-    <div style="margin-top:4px;text-align:center;font-size:12.5px;color:var(--muted)">Past entries keep their name if you remove it.</div></div>`;
+    <div style="margin-top:10px;height:48px;border:1.5px solid var(--danger);border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px;font-weight:600;color:var(--danger)">${ic('x',16,2.4)}Remove from my list</div>
+    <div style="margin-top:8px;text-align:center;font-size:12.5px;color:var(--muted)">Past entries keep their name if you remove it.</div></div>`;
 }
 function otherDlg(q, typed){
   const ql = (q||'').toLowerCase();
