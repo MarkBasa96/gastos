@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
-import { Expense, Settings, cleanCategories, cleanLabels, normalize } from './data';
+import { Expense, Settings, cleanCategories, cleanColorTheme, cleanLabels, cleanPinned, normalize } from './data';
 import { pushWithFallback } from './syncCore';
 
 // Both values are public by design (they ship inside the app). Row Level Security protects the data.
@@ -162,28 +162,32 @@ export async function pushNewOnly(rows: Expense[], userId: string): Promise<{ se
 /** Local change wins if it hasn't been pushed yet; otherwise the server copy wins. Appearance stays per-phone. */
 export async function syncSettings(local: Settings, userId: string): Promise<Settings> {
   if (!supabase) return local;
+  const client = supabase;
+  // The colour theme and pins follow the account (v3.1). Until migration-v3.1.sql has run on the
+  // server those columns don't exist; then sync carries on without them, exactly as 3.0 did.
+  const noColumn = (e: { code?: string } | null) => !!e && (e.code === '42703' || e.code === 'PGRST204');
   if (await settingsDirty()) {
-    const { error } = await supabase.from('user_settings').upsert({
-      user_id: userId,
-      currency: local.currency,
-      categories: local.categories,
-      payment_labels: local.paymentLabels,
-    });
+    const row = { user_id: userId, currency: local.currency, categories: local.categories, payment_labels: local.paymentLabels };
+    let { error } = await client.from('user_settings').upsert({ ...row, color_theme: local.colorTheme, pinned_categories: local.pinned });
+    if (noColumn(error)) ({ error } = await client.from('user_settings').upsert(row));
     if (error) throw error;
     await setSettingsDirty(false);
     return local;
   }
-  const { data, error } = await supabase
-    .from('user_settings')
-    .select('currency,categories,payment_labels')
-    .maybeSingle();
+  let res = await client.from('user_settings').select('currency,categories,payment_labels,color_theme,pinned_categories').maybeSingle();
+  if (noColumn(res.error)) res = (await client.from('user_settings').select('currency,categories,payment_labels').maybeSingle()) as typeof res;
+  const { data, error } = res;
   if (error) throw error;
   if (!data) return local;
+  const categories = cleanCategories(data.categories);
+  const pins = (data as { pinned_categories?: unknown }).pinned_categories;
   return {
     ...local,
     currency: /^[A-Z]{3}$/.test(data.currency) ? data.currency : local.currency,
-    categories: cleanCategories(data.categories),
+    categories,
+    pinned: Array.isArray(pins) ? cleanPinned(pins, categories) : cleanPinned(local.pinned, categories),
     paymentLabels: Array.isArray(data.payment_labels) && data.payment_labels.length ? cleanLabels(data.payment_labels) : local.paymentLabels,
+    colorTheme: data.color_theme ? cleanColorTheme(data.color_theme) : local.colorTheme,
   };
 }
 
@@ -195,6 +199,17 @@ export async function syncSettings(local: Settings, userId: string): Promise<Set
 export async function renamePaidWith(from: string, to: string): Promise<void> {
   if (!supabase) throw new Error('offline');
   const { error } = await supabase.from('expenses').update({ paid_with: to }).eq('paid_with', from);
+  if (error) throw error;
+}
+
+/**
+ * Rename one of her own categories on every past expense (v3.1). Server-side, one column only, like
+ * the wallet rename (Kenshin M11): a stale copy on this phone can never be pushed over another
+ * phone's edit. RLS keeps it to her own rows; updated_at moves, so every phone pulls the new name.
+ */
+export async function renameCategory(from: string, to: string): Promise<void> {
+  if (!supabase) throw new Error('offline');
+  const { error } = await supabase.from('expenses').update({ category: to }).eq('category', from).eq('kind', 'expense');
   if (error) throw error;
 }
 

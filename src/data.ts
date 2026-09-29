@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Appearance } from './theme';
+import { COLOR_THEMES, type Appearance, type ColorTheme } from './theme';
 
 export type Method = 'cash' | 'card';
 export type Kind = 'expense' | 'income';
@@ -27,6 +27,8 @@ export type Settings = {
   categories: string[]; // her own, added after the defaults
   paymentLabels: PayLabel[];
   sounds: boolean; // this phone only, like appearance
+  colorTheme: ColorTheme; // follows the account (v3.1), unlike appearance
+  pinned: string[]; // names from `categories` kept on top of the Other list (v3.1)
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -40,6 +42,8 @@ export const DEFAULT_SETTINGS: Settings = {
     { n: 'SeaBank', g: 'ewallet' },
   ],
   sounds: true,
+  colorTheme: 'green',
+  pinned: [],
 };
 
 // Erina v2 §1: one clean word each, 8 total (Miller's range), "Other" stays.
@@ -96,9 +100,33 @@ export function cleanSettings(s: any): Settings {
     currency: /^[A-Z]{3}$/.test(s?.currency) ? s.currency : 'PHP',
     appearance: s?.appearance === 'light' || s?.appearance === 'dark' ? s.appearance : 'system',
     categories: cleanCategories(s?.categories),
+    pinned: cleanPinned(s?.pinned, cleanCategories(s?.categories)),
     paymentLabels: Array.isArray(s?.paymentLabels) ? cleanLabels(s.paymentLabels) : DEFAULT_SETTINGS.paymentLabels,
     sounds: s?.sounds !== false,
+    colorTheme: cleanColorTheme(s?.colorTheme),
   };
+}
+
+/** Pins are names from her own list, each once, in the order she pinned them. */
+export function cleanPinned(list: unknown, categories: string[]): string[] {
+  if (!Array.isArray(list)) return [];
+  const out: string[] = [];
+  for (const x of list) if (typeof x === 'string' && categories.includes(x) && !out.includes(x)) out.push(x);
+  return out.slice(0, 50);
+}
+
+/** A name typed for Other or a rename: no control or direction-flipping characters, single spaces, 24 characters. */
+export function cleanCategoryName(s: string): string {
+  return s
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 24)
+    .trim();
+}
+
+export function cleanColorTheme(v: unknown): ColorTheme {
+  return (COLOR_THEMES as readonly unknown[]).includes(v) ? (v as ColorTheme) : 'green';
 }
 
 export async function loadSettings(): Promise<Settings> {

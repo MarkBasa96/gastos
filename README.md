@@ -25,6 +25,17 @@ every design choice: **if logging is inconvenient, she won't keep it up.** So lo
 one category tile, Save, done. The keyboard only opens when you tap the amount, "Paid with"
 remembers your usual wallet, and Save sits right under your thumb.
 
+## What's new in 3.1
+
+- **Color themes.** Eight to pick from in Settings: Gastos green, Baby pink, Lavender, Ocean blue, Mint teal, Sunset coral, Sunflower and Latte. Light and dark both follow it, and when you're signed in it follows your account onto every phone.
+- **FAQ in Settings.** Quick answers, searchable, that work offline: where entries are saved, how safe your data is, backups, the MPIN, and more.
+- **Your own categories live behind "Other".** Tap Other and a pop-up asks what it was ("Haircut"): pick one from your list, search it, or type a new one. Pin favourites to the top; the rest are sorted by most used. The pencil renames one (and, if you like, your past entries with it) or removes it. The main grid always keeps its 8 tiles.
+- **A bigger top card** with a bar of how much of this month's income is spent. It sizes itself so the Log screen fills the phone with Save just above the tab bar.
+- **A note you can't miss.** The note is now a full-width box above Save, and the save pop-up shows it on its own line.
+- **Tap an entry in History to see everything about it** (amount, date, wallet, note, when it was added), with an Edit button at the top.
+- **Pop-ups blur the screen behind them.**
+- **The phone's Back button works again on Android.** 3.0's version was skipped by newer Chrome, so Back closed the app. 3.1 uses Chrome's built-in way to catch Back for pop-ups (CloseWatcher), with the old approach as a fallback.
+
 ## What's new in 3.0
 
 - **Money left this month.** The top card shows income minus spending, with *In* and *Out* underneath. It counts up each time you open the tab.
@@ -41,7 +52,7 @@ remembers your usual wallet, and Save sits right under your thumb.
 
 - **Log an expense or income in seconds.** Filipino-first categories: Food, Transport, Load, Bills, *Padala*, Shopping, Health, plus your own.
 - **Paid with:** cash, cards, e-wallets and digital banks (GCash, Maya, GoTyme, SeaBank…). Names only, never account numbers. Rename or remove them any time.
-- **History:** week, month, year or any dates you pick; spending and income charts; entries grouped by day; search. Entries take two taps to edit, so a stray tap never opens one.
+- **History:** week, month, year or any dates you pick; spending and income charts; entries grouped by day; search. Tap an entry to see all its details, with Edit at the top.
 - **Offline-first sync:** every save lands on the phone first, then syncs. A small status dot shows *Synced / Saving / Offline / N waiting*.
 - **MPIN lock:** asked when the app opens fresh or after 30 minutes away, not every time you switch apps.
 - **Currency conversion** at today's rate. The original amounts are always kept, so switching back is exact.
@@ -114,7 +125,7 @@ npx expo start --web
 
 Set up the database by running, in the Supabase SQL editor: `supabase/schema.sql`, then
 `supabase/migration-v2.sql`, then `supabase/migration-v3.sql` (it creates its own MPIN secret in
-Vault). Feedback emails are optional: add a Brevo API key to Vault as `gastos_brevo_feedback_key`
+Vault), then `supabase/migration-v3.1.sql` (the color theme on the settings row). Feedback emails are optional: add a Brevo API key to Vault as `gastos_brevo_feedback_key`
 and change the addresses in `send_feedback`. Without a key, feedback is still saved.
 
 For a web build, run `npx expo export -p web` and then `node scripts/write-sw.mjs dist`, which

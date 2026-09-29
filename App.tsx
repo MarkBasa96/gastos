@@ -33,6 +33,7 @@ import {
   pull,
   push,
   pushNewOnly,
+  renameCategory as renameCategoryOnServer,
   renamePaidWith,
   saveDirty,
   sendFeedback,
@@ -47,7 +48,9 @@ import {
   PayLabel,
   Rates,
   Settings,
+  cleanCategories,
   cleanLabels,
+  cleanPinned,
   fetchRates,
   loadExpenses,
   loadRates,
@@ -61,9 +64,10 @@ import { EditSheet } from './src/ExpenseRow';
 import { prefersReducedMotion, setSoundsOn } from './src/fx';
 import { HistoryScreen } from './src/HistoryScreen';
 import { LogScreen } from './src/LogScreen';
+import type { CategoryTools } from './src/OtherPicker';
 import { MAX_TRIES, clearPin, loadPin, maskEmail, pinSupported, tryPin, weakPin } from './src/pin';
 import { SettingsScreen } from './src/SettingsScreen';
-import { AppearanceContext, Theme, cardRadius, useTheme } from './src/theme';
+import { AppearanceContext, ColorTheme, ColorThemeContext, Theme, cardRadius, useTheme } from './src/theme';
 import { BrandLoader, Button, Sheet, SyncState, T } from './src/ui';
 
 type Tab = 'log' | 'history' | 'settings';
@@ -94,7 +98,7 @@ async function readPinView(uid: string | null): Promise<PinView> {
   return 'none';
 }
 
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.1.0';
 // Joe v3: no lock when switching apps; only a fresh open, or after this long away (Kenshin L4).
 const IDLE_LOCK_MS = 30 * 60_000;
 
@@ -128,16 +132,23 @@ if (
 
 export default function App() {
   const [appearance, setAppearance] = useState<Settings['appearance']>('system');
+  const [color, setColor] = useState<ColorTheme>('green');
+  const onLook = useCallback((s: Pick<Settings, 'appearance' | 'colorTheme'>) => {
+    setAppearance(s.appearance);
+    setColor(s.colorTheme);
+  }, []);
   return (
     <SafeAreaProvider>
       <AppearanceContext.Provider value={appearance}>
-        <Main onAppearance={setAppearance} />
+        <ColorThemeContext.Provider value={color}>
+          <Main onLook={onLook} />
+        </ColorThemeContext.Provider>
       </AppearanceContext.Provider>
     </SafeAreaProvider>
   );
 }
 
-function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => void }) {
+function Main({ onLook }: { onLook: (s: Pick<Settings, 'appearance' | 'colorTheme'>) => void }) {
   const t = useTheme();
   // Fonts ship from assets/fonts, NOT from node_modules: Vercel skips any path containing
   // "node_modules" on upload, so the package copies 404'd live (2026-09-26). OFL-1.1 licensed.
@@ -221,7 +232,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
       saveExpenses(e).catch(() => {}); // v1 rows get their currency written down now (Kenshin L-d)
       setExpenses(e);
       setSettingsState(s);
-      onAppearance(s.appearance);
+      onLook(s);
       setPending(Object.keys(d).length);
       setLastUser(lu);
       setLastEmail(le);
@@ -229,7 +240,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
       setOnboarded(ob === '1' || e.length > 0 || !!lu);
       setRatesState(r);
     })().catch(() => setLoadError(true));
-  }, [onAppearance]);
+  }, [onLook]);
 
   useEffect(() => setSoundsOn(settings.sounds), [settings.sounds]);
 
@@ -284,6 +295,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
       if (JSON.stringify(s2) !== JSON.stringify(settingsRef.current)) {
         settingsRef.current = s2;
         setSettingsState(s2);
+        onLook(s2);
         saveSettings(s2);
       }
       setOffline(false);
@@ -449,22 +461,65 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
   );
 
   const setSettings = useCallback(
-    (s: Settings) => {
+    (next: Settings) => {
+      const s = { ...next, pinned: cleanPinned(next.pinned, next.categories) }; // a removed name drops its pin
       settingsRef.current = s;
       setSettingsState(s);
-      onAppearance(s.appearance);
+      onLook(s);
       saveSettings(s);
       if (sessionRef.current) {
         setSettingsDirty(true);
         syncSoon();
       }
     },
-    [syncSoon, onAppearance],
+    [syncSoon, onLook],
   );
 
   const addLabel = useCallback(
     (l: PayLabel) => setSettings({ ...settingsRef.current, paymentLabels: cleanLabels([...settingsRef.current.paymentLabels, l]) }),
     [setSettings],
+  );
+
+  /** A named Other kept as a tile (Joe v3.1): same list, same rules as Settings → Categories. */
+  const addCategory = useCallback(
+    (c: string) => {
+      const next = cleanCategories([...settingsRef.current.categories, c]);
+      if (next.length > settingsRef.current.categories.length) setSettings({ ...settingsRef.current, categories: next });
+    },
+    [setSettings],
+  );
+
+  const togglePin = useCallback(
+    (n: string) => {
+      const s = settingsRef.current;
+      setSettings({ ...s, pinned: s.pinned.includes(n) ? s.pinned.filter((p) => p !== n) : [...s.pinned, n] });
+    },
+    [setSettings],
+  );
+
+  const removeCategory = useCallback(
+    (n: string) => {
+      const s = settingsRef.current;
+      setSettings({ ...s, categories: s.categories.filter((c) => c !== n) }); // past entries keep their name
+    },
+    [setSettings],
+  );
+
+  /**
+   * Rename one of her own names (v3.1). `to` already has the list's spelling when it merges into an
+   * existing name. Past entries: server first, one column (like the wallet rename), then this phone.
+   */
+  const renameCategory = useCallback(
+    async (from: string, to: string, past: boolean) => {
+      if (past && sessionRef.current) await renameCategoryOnServer(from, to);
+      if (past) commit(expensesRef.current.map((e) => (e.kind === 'expense' && e.category === from ? { ...e, category: to } : e)));
+      const s = settingsRef.current;
+      // cleanCategories drops a built-in name and any duplicate, so a merge leaves one entry.
+      const categories = cleanCategories(s.categories.map((c) => (c === from ? to : c)));
+      setSettings({ ...s, categories, pinned: s.pinned.map((p) => (p === from ? to : p)) });
+      if (past && sessionRef.current) syncSoon();
+    },
+    [commit, setSettings, syncSoon],
   );
 
   /** The new look grows as a circle out of the tapped icon (Joe v3). Instant under reduced motion. */
@@ -481,8 +536,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
       const end = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
       if (!doc.startViewTransition) {
         // The colour we're leaving: the veil starts as the old screen's background.
-        const wasDark = t.dark;
-        setReveal({ x, y, end, color: wasDark ? '#111513' : '#F6F7F6', key: Date.now() });
+        setReveal({ x, y, end, color: t.bg, key: Date.now() });
         apply();
         return;
       }
@@ -498,7 +552,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
         )
         .catch(() => {});
     },
-    [setSettings, t.dark],
+    [setSettings, t.bg],
   );
 
   /** Wallet rename: server first (one column), then this phone's copies without marking them to upload (Kenshin M11). */
@@ -578,7 +632,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
     setLastEmail(null);
     writeDirty({});
     commit([]);
-    setSettings({ ...DEFAULT_SETTINGS, appearance: settingsRef.current.appearance });
+    setSettings({ ...DEFAULT_SETTINGS, appearance: settingsRef.current.appearance, colorTheme: settingsRef.current.colorTheme });
     setSyncedThisSession(false);
     setRejected(0);
     setScreen(null);
@@ -853,6 +907,12 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
 
   // ---------- derived ----------
   const visible = useMemo(() => (expenses ?? []).filter((e) => !e.deleted), [expenses]);
+  // The Other list (v3.1): her own names, pins, and how often each is used, for "most used first".
+  const catTools = useMemo<CategoryTools>(() => {
+    const usage: Record<string, number> = {};
+    for (const e of visible) if (e.kind === 'expense') usage[e.category] = (usage[e.category] ?? 0) + 1;
+    return { list: settings.categories, pinned: settings.pinned, usage, togglePin, rename: renameCategory, remove: removeCategory };
+  }, [visible, settings.categories, settings.pinned, togglePin, renameCategory, removeCategory]);
   const loadingCloud = !!session && !syncedThisSession && visible.length === 0 && online && !offline;
   const syncState: SyncState = !session
     ? 'local'
@@ -884,7 +944,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
       showTabs = true;
       body = (
         <LogScreen t={t} expenses={[]} settings={settings} rates={rates} sync="saving" waiting={0} loading
-          onSyncPress={() => {}} onAdd={() => {}} onUndo={() => {}} onEdit={() => {}} onAddLabel={() => {}} />
+          onSyncPress={() => {}} onAdd={() => {}} onUndo={() => {}} onEdit={() => {}} onAddLabel={() => {}} onAddCategory={() => {}} catTools={catTools} />
       );
     } else {
       body = <BrandLoader t={t} />;
@@ -1012,6 +1072,8 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
           onUndo={remove}
           onEdit={setEditing}
           onAddLabel={addLabel}
+          onAddCategory={addCategory}
+          catTools={catTools}
         />
       );
     } else if (tab === 'history') {
@@ -1090,6 +1152,7 @@ function Main({ onAppearance }: { onAppearance: (a: Settings['appearance']) => v
           t={t}
           currency={settings.currency}
           customCategories={settings.categories}
+          catTools={catTools}
           labels={settings.paymentLabels}
           onAddLabel={addLabel}
           onClose={() => setEditing(null)}
@@ -1149,6 +1212,7 @@ function Nav({ t, tab, onTab }: { t: Theme; tab: Tab; onTab: (t: Tab) => void })
               onPress={() => onTab(key)}
               accessibilityRole="tab"
               accessibilityState={{ selected: on }}
+              aria-selected={on}
               style={(s: any) => [styles.tab, s.pressed && { backgroundColor: t.accentSoft }]}
             >
               <T size={15} w={on ? 'semibold' : 'medium'} color={on ? t.accent : t.muted}>{label}</T>

@@ -1,0 +1,250 @@
+<title>Gastos 3.1 Mockups</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@700&display=swap">
+<style>
+/* Layout: a single review column; each change is a section with its phone shots side by side (light | dark). */
+:root{
+  --bg:#F6F7F6; --surface:#FFFFFF; --text:#16201B; --muted:#5B6660; --border:#DCE1DE;
+  --accent:#1D6B45; --accentSoft:#E3F0E8; --warn:#9A6700; --warnSoft:#FBF1DA;
+  --brand:'Poppins', 'Inter', system-ui, sans-serif; --body:'Inter', system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111513; --surface:#1A201D; --text:#EDF1EE; --muted:#A3ADA7; --border:#2C3530;
+  --accent:#5CC48C; --accentSoft:#1F3328; --warn:#E8A33D; --warnSoft:#2E2614; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111513; --surface:#1A201D; --text:#EDF1EE; --muted:#A3ADA7; --border:#2C3530;
+  --accent:#5CC48C; --accentSoft:#1F3328; --warn:#E8A33D; --warnSoft:#2E2614; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font:400 16px/1.55 var(--body);margin:0}
+.wrap{max-width:980px;margin:0 auto;padding-inline:20px;padding-block:40px 80px}
+header .eyebrow{font-size:13px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--accent)}
+h1{font-family:var(--brand);font-size:clamp(34px,6vw,52px);line-height:1.05;margin:8px 0 12px;text-wrap:balance;letter-spacing:-.01em}
+.lede{max-width:66ch;color:var(--muted);font-size:17px;margin:0}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.pill{font-size:13px;font-weight:600;padding:5px 11px;border-radius:999px;background:var(--accentSoft);color:var(--accent)}
+.pill.warn{background:var(--warnSoft);color:var(--warn)}
+nav.toc{margin-top:28px;display:flex;flex-wrap:wrap;gap:8px}
+nav.toc a{font-size:14px;font-weight:500;color:var(--text);text-decoration:none;border:1px solid var(--border);background:var(--surface);padding:7px 12px;border-radius:10px}
+nav.toc a:hover,nav.toc a:focus-visible{border-color:var(--accent);outline:none}
+section{margin-top:56px;padding-top:8px;border-top:1px solid var(--border)}
+section h2{font-size:24px;line-height:1.25;margin:20px 0 6px;text-wrap:balance}
+section h2 small{display:block;font-size:13px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.what{max-width:68ch;margin:0}
+ul.points{max-width:68ch;padding-left:20px;margin:10px 0 0}
+ul.points li{margin:4px 0}
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:18px;margin-top:22px}
+figure{margin:0;min-width:0}
+figure img{display:block;width:100%;border-radius:26px;border:1px solid var(--border);box-shadow:0 10px 30px rgba(0,0,0,.10)}
+figcaption{font-size:13px;color:var(--muted);margin-top:8px}
+.ask{margin-top:20px;border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:16px 18px;max-width:72ch}
+.ask b{display:block;font-size:14px;color:var(--accent);margin-bottom:4px}
+.ask p{margin:0}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:12px;padding:3px;gap:3px;background:var(--surface);margin-top:18px}
+.seg button{font:600 14px var(--body);border:0;background:transparent;color:var(--muted);padding:8px 16px;border-radius:9px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accentSoft);color:var(--text)}
+.seg button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tech{margin-top:16px;border-left:3px solid var(--warn);background:var(--warnSoft);border-radius:0 12px 12px 0;padding:14px 16px;max-width:72ch}
+.tech p{margin:0 0 8px}.tech p:last-child{margin:0}
+code{font-size:.9em;background:var(--accentSoft);padding:1px 5px;border-radius:5px}
+ol.qs{max-width:72ch;padding-left:22px}
+ol.qs li{margin:10px 0}
+footer{margin-top:56px;color:var(--muted);font-size:14px}
+@media (max-width:520px){.shots{grid-template-columns:1fr 1fr;gap:10px}figure img{border-radius:16px}}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Mockup review · rounds 1 to 5 built</div>
+  <h1>Gastos 3.1</h1>
+  <p class="lede">Six updates from Joe's list, drawn as phone-size mockups in light and dark before any code is written. Screens use sample data. Nothing here is built yet; say what to change and I'll do another round.</p>
+  <div class="meta">
+    <span class="pill">Suggested version: 3.1</span>
+    <span class="pill warn">1 small database change</span>
+    <span class="pill">Everything approved is built</span>
+  </div>
+  <nav class="toc" aria-label="Sections">
+    <a href="#round5">Round 5 · Edit a name</a><a href="#round4">Round 4 · Bigger top card</a><a href="#round2">Round 3 · Your list behind Other</a><a href="#built">Built: History details</a>
+    <a href="#themes">1 · Color themes</a><a href="#faq">2 · FAQ</a><a href="#blur">3 · Blurred pop-ups</a>
+    <a href="#back">4 · Back button</a><a href="#other">5 · “Other” label</a><a href="#note">6 · Note</a><a href="#questions">Questions</a>
+  </nav>
+</header>
+
+<section id="round5">
+  <h2><small>Round 5 · approved, built</small>Edit a name in your list</h2>
+  <p class="what">Each name in the “What was it?” list now has a <b>pencil</b> next to its pin. Tap it and an <b>Edit</b> pop-up opens on top, where you can rename that name or remove it from your list.</p>
+  <ul class="points">
+    <li><b>Rename:</b> type the new name and tap Save. A tick box, on by default, also renames your past entries with that name, so History and the charts keep them together. It says how many entries that is (“Rename my 14 past entries too”).</li>
+    <li><b>Remove from my list:</b> takes the name off your list. Past entries keep their name, the same way Settings → Categories works today.</li>
+    <li>Renaming to a name that's already in your list merges the two. The pop-up says so before you save.</li>
+    <li>Pins and “most used” carry over to the new name.</li>
+    <li>With the tick box on, past entries are renamed on every phone. The server does it in one step, the same way renaming a card or e-wallet works today.</li>
+  </ul>
+  <div class="shots">
+    <figure><img src="img/r2-olist-light.png" alt="The list with a pencil and a pin on each name"><figcaption>Pencil next to each pin</figcaption></figure>
+    <figure><img src="img/r5-oedit-light.png" alt="Edit Coffee pop-up with the new name Coffee and snacks, a tick box to rename 14 past entries, Save and Remove from my list"><figcaption>Tap the pencil: rename or remove</figcaption></figure>
+    <figure><img src="img/r2-olist-dark.png" alt="The list with pencils, dark"><figcaption>List, dark</figcaption></figure>
+    <figure><img src="img/r5-oedit-dark.png" alt="Edit pop-up, dark"><figcaption>Edit, dark</figcaption></figure>
+  </div>
+</section>
+
+<section id="round4">
+  <h2><small>Round 4 · approved, built</small>A bigger top card that fills the screen</h2>
+  <p class="what">With the grid fixed at 8 tiles, the Log screen always has the same height, so the “Left this month” card can grow to use the empty space above the tab bar. It gets a bigger amount, a bar showing how much of this month's income is spent, and In and Out as two boxes.</p>
+  <ul class="points">
+    <li><b>It sizes itself to the phone.</b> The card uses the biggest layout that still fits, then stretches, so Save always sits just above the tab bar with no empty space.</li>
+    <li><b>Standard phones</b> (like the mockups, 844 tall) get the full card: amount, bar and the two boxes.</li>
+    <li><b>Tall phones</b> (915 tall and up): the card grows by up to about 60px. Anything more is shared out as slightly wider gaps between the sections, so there's never an empty band inside the card.</li>
+    <li><b>Short phones</b> (740 tall and under) keep today's compact card. There's no spare room on those, and a bigger card would push Save off the screen.</li>
+    <li><b>The bar:</b> with no income logged yet this month, it says so instead of showing 0%. If spending goes past income, the bar fills and says “You spent more than came in”, as the card does today.</li>
+  </ul>
+  <div class="shots">
+    <figure><img src="img/r4-herofilled-light.png" alt="Log screen with a taller top card: large amount, a spending bar and In and Out boxes; Save sits just above the tab bar"><figcaption>Standard phone, filled in</figcaption></figure>
+    <figure><img src="img/r4-hero-dark.png" alt="The taller top card in dark mode"><figcaption>Dark</figcaption></figure>
+    <figure><img src="img/r4-herofilled-pink.png" alt="The taller top card in the Baby pink theme"><figcaption>Baby pink theme</figcaption></figure>
+    <figure><img src="img/r4-hero-915.png" alt="A taller phone: the card grows a little and the gaps between sections widen evenly"><figcaption>Tall phone: card grows, gaps widen</figcaption></figure>
+    <figure><img src="img/r4-hero-740.png" alt="A shorter phone keeps today's compact card"><figcaption>Short phone: today's card</figcaption></figure>
+  </div>
+</section>
+
+<section id="round2">
+  <h2><small>Round 3 · approved, built</small>Your list lives behind “Other”</h2>
+  <p class="what">Right now every name you save becomes a new tile, and the grid grows by a row for every 4. In testing, 5 of your own tiles already pushed Save behind the tab bar, and 12 hid both the note and Save. In this version the main grid always keeps the original 8 tiles. Everything you've added lives in a pop-up behind <b>Other</b>.</p>
+  <ul class="points">
+    <li><b>Tap Other:</b> a “What was it?” pop-up opens <b>in the middle of the screen</b>, with a search box on top and <b>Your list</b> below it.</li>
+    <li><b>Pin a name</b> with the pin on its right, and it stays in a <b>Pinned</b> group at the top. Tap the pin again to unpin it. Pins follow your account onto every phone, like the color theme.</li>
+    <li><b>Everything else is sorted by most used</b>, counted from your own entries, so your usual ones sit near the top.</li>
+    <li><b>The list scrolls in its own box</b> with a scrollbar on the right. The pop-up and the page never move, so Cancel and Done stay put.</li>
+    <li><b>Search as you type:</b> the list narrows to matches, with the matching letters in the theme color. Tap a name to pick it and close the pop-up.</li>
+    <li><b>Something new:</b> when nothing matches, you get <b>Use “Tricycle”</b> and a tick box (on by default) to save it to your list for next time.</li>
+    <li>After picking, the Other tile shows the name (for example “Coffee”). Tap it again to change it.</li>
+    <li>Settings → Categories still lists everything, to rename or remove. Its hint will change to “they appear when you tap Other”.</li>
+  </ul>
+  <div class="shots">
+    <figure><img src="img/r2-grid8-light.png" alt="Log screen with only the original 8 tiles; the Other tile reads Coffee"><figcaption>Grid stays at 8 tiles, Other shows the pick</figcaption></figure>
+    <figure><img src="img/r2-olist-light.png" alt="What was it pop-up with a search box and a scrollable list of 12 saved names with a scrollbar on the right"><figcaption>Tap Other: centered, pinned on top, scrollbar on the right</figcaption></figure>
+    <figure><img src="img/r2-osearch-light.png" alt="The pop-up with co typed, showing Coffee, Condo dues and Cooking gas"><figcaption>Typing “co” narrows both groups</figcaption></figure>
+    <figure><img src="img/r2-onew-light.png" alt="The pop-up with Tricycle typed, offering Use Tricycle and Save Tricycle to my list"><figcaption>A new name: use it, and save it</figcaption></figure>
+    <figure><img src="img/r2-grid8-dark.png" alt="Log screen, dark"><figcaption>Grid, dark</figcaption></figure>
+    <figure><img src="img/r2-olist-dark.png" alt="Your list pop-up, dark"><figcaption>Your list, dark</figcaption></figure>
+    <figure><img src="img/r2-osearch-dark.png" alt="Search in the pop-up, dark"><figcaption>Search, dark</figcaption></figure>
+    <figure><img src="img/r2-onew-dark.png" alt="New name in the pop-up, dark"><figcaption>New name, dark</figcaption></figure>
+  </div>
+  <div class="ask"><b>Round 3 changes</b><p>From your round 2 notes: the pop-up is now centered on the screen, names can be pinned, and the rest are sorted by most used. Pins need one more column on the settings table, added to the same <code>supabase/migration-v3.1.sql</code> your agent runs tonight, so nothing extra to run.</p></div>
+</section>
+
+<section id="built">
+  <h2><small>Built</small>From the real app</h2>
+  <p class="what">Rounds 3 to 5 are now built on the branch, alongside the History details. These screenshots are from the real app with sample data, not mockups.</p>
+  <div class="shots">
+    <figure><img src="img/built-card.png" alt="Built Log screen with the bigger top card; Save sits just above the tab bar"><figcaption>Round 4: the top card, fitted</figcaption></figure>
+    <figure><img src="img/built-list.png" alt="Built What was it pop-up with pinned names on top"><figcaption>Round 3: your list behind Other</figcaption></figure>
+    <figure><img src="img/built-search.png" alt="Built pop-up with co typed, narrowing the list"><figcaption>Round 3: search</figcaption></figure>
+    <figure><img src="img/built-edit-dark.png" alt="Built Edit pop-up in dark mode"><figcaption>Round 5: edit a name</figcaption></figure>
+    <figure><img src="img/built-details-light.png" alt="The built entry details pop-up in light mode"><figcaption>History entry details</figcaption></figure>
+    <figure><img src="img/built-details-dark.png" alt="The built entry details pop-up in dark mode"><figcaption>History entry details, dark</figcaption></figure>
+  </div>
+</section>
+
+<section id="themes">
+  <h2><small>Update 1</small>Color themes</h2>
+  <p class="what">Settings gets a new <b>Color theme</b> row under Appearance. Tapping it opens a picker with 8 themes, each drawn as a small preview of the top card. The whole app follows the pick: the top card's glow, Save, the selected tile, the tab underline and the note box. Light and dark both follow it.</p>
+  <ul class="points">
+    <li>Themes: Gastos green (default), Baby pink, Lavender, Ocean blue, Mint teal, Sunset coral, Sunflower, Latte.</li>
+    <li>Every button color passes the 4.5:1 readability rule on its background, in both light and dark.</li>
+    <li><b>Decided:</b> the theme follows your account, so it shows on every phone you sign in on. It needs one new column on the settings table (see Questions). On this phone only, without signing in, it simply stays on the phone.</li>
+  </ul>
+  <div class="shots">
+    <figure><img src="img/settings-light.png" alt="Settings in light mode with a new Color theme row and a Help section"><figcaption>Settings: new Color theme row and Help section</figcaption></figure>
+    <figure><img src="img/settings-dark.png" alt="Settings in dark mode"><figcaption>Settings, dark</figcaption></figure>
+    <figure><img src="img/themes-light.png" alt="Color theme picker with 8 theme cards over a blurred Settings screen"><figcaption>Theme picker</figcaption></figure>
+    <figure><img src="img/themes-dark.png" alt="Color theme picker in dark mode"><figcaption>Theme picker, dark</figcaption></figure>
+  </div>
+  <h2 style="font-size:19px;margin-top:34px">The Log screen in every theme</h2>
+  <div class="seg" role="group" aria-label="Theme gallery mode">
+    <button type="button" id="g-light" aria-pressed="true">Light</button>
+    <button type="button" id="g-dark" aria-pressed="false">Dark</button>
+  </div>
+  <div class="shots" id="gallery"></div>
+  <div class="tech"><p>I couldn't open the visme.co page you linked: this workspace's network blocks that site. I made the palettes myself in the same soft, pastel spirit. If a scheme on that page catches your eye, send me its name or a screenshot and I'll add it or swap one out.</p></div>
+</section>
+
+<section id="faq">
+  <h2><small>Update 2</small>FAQ</h2>
+  <p class="what">A new <b>Help</b> section in Settings with <b>FAQ</b> above Send feedback. It opens a sheet of common questions that expand when tapped, with a search box on top. Answers work offline because they ship inside the app.</p>
+  <ul class="points">
+    <li>First questions: where entries are saved, what “N waiting” means, a forgotten MPIN, using it offline, editing or deleting, adding a category, changing the color, installing on the phone, and how currency conversion works.</li>
+  </ul>
+  <div class="shots">
+    <figure><img src="img/faq-light.png" alt="FAQ sheet with search and expandable questions, the first one open"><figcaption>FAQ sheet, first answer open</figcaption></figure>
+    <figure><img src="img/faq-dark.png" alt="FAQ sheet in dark mode"><figcaption>FAQ, dark</figcaption></figure>
+  </div>
+</section>
+
+<section id="blur">
+  <h2><small>Update 3</small>Blurred background behind every pop-up</h2>
+  <p class="what">Every pop-up and bottom sheet blurs the screen behind it: Save / Delete / Sign out confirmations, Paid with, Date, Categories, the theme picker and the FAQ. The dark tint is a bit lighter than today, because the blur already separates the pop-up from the screen behind it.</p>
+  <div class="shots">
+    <figure><img src="img/confirm-light.png" alt="Save this expense pop-up over a blurred Log screen"><figcaption>Save confirmation over the blurred Log screen</figcaption></figure>
+    <figure><img src="img/confirm-dark.png" alt="Save this expense pop-up in dark mode over a blurred background"><figcaption>Save confirmation, dark</figcaption></figure>
+  </div>
+  <div class="tech"><p>The blur shows on the web app, the installed home-screen app and the Android app, which covers every way Gastos is used today.</p></div>
+</section>
+
+<section id="back">
+  <h2><small>Update 4</small>Fix the phone's Back button</h2>
+  <p class="what">This one has no new screen. The intended behavior stays the same as the 3.0 notes: Back closes the open sheet or pop-up without saving or deleting anything, goes from History or Settings to Log, and on Log shows “Press back again to exit”.</p>
+  <div class="tech">
+    <p><b>Likely cause.</b> Gastos adds a “spare” step to the browser history so Back has something to undo. It adds that step when the app opens and again right after each Back, when you haven't tapped anything. Chrome, which also runs the Android app, now skips history steps a page adds without a tap. So Back jumps straight past Gastos and closes the app.</p>
+    <p><b>Fix plan.</b> Where the phone supports Chrome's built-in way to catch Back for pop-ups (Android Chrome and the Android app), use that. Everywhere else, add the spare history step only right after a real tap. Then I test it in an Android-sized browser. The final check is yours on a real phone, as with v3.</p><p><b>Reported on:</b> the Android app (APK), Android Chrome and the home-screen app, and iPhone. The fix covers all the Android cases. On iPhone, a home-screen app has no Back button, and Safari's edge swipe doesn't go back inside it. That's an iOS limit, so on iPhone every sheet and pop-up keeps its Cancel or X, and you can tap outside it to close it.</p>
+  </div>
+</section>
+
+<section id="other">
+  <h2><small>Update 5</small>Name your own “Other”</h2>
+  <p class="what">Tapping <b>Other</b> opens a centered “What was it?” pop-up. Pick a name from your list, or type a new one. The name becomes the entry's category, so History shows “Haircut” instead of “Other”, and the Other tile shows it too. New names are saved to your list for next time (ticked by default). The main grid always stays at the original 8 tiles. The full design is in <a href="#round2">Round 3</a> above.</p>
+  <ul class="points">
+    <li>Pin the names you use most; the rest are sorted by most used.</li>
+    <li>If you leave it empty, the entry saves as plain “Other”, same as today.</li>
+    <li>The same pop-up works for “Other income” on the Income side.</li>
+  </ul>
+  <div class="shots">
+    <figure><img src="img/r2-olist-light.png" alt="The centered What was it pop-up with pinned names on top"><figcaption>Tap Other: the pop-up</figcaption></figure>
+    <figure><img src="img/r2-grid8-light.png" alt="Log screen, the Other tile reads Coffee"><figcaption>After picking: the Other tile shows the name</figcaption></figure>
+  </div>
+</section>
+
+<section id="note">
+  <h2><small>Update 6</small>A note that's easy to see</h2>
+  <p class="what">The small dashed “+ Note” chip becomes a full-width box in the theme's color, sitting right above Save with a hint: “Add a note, like ‘Jollibee lunch’”. The keyboard still opens only when you tap it. Before saving, the pop-up shows the note in its own colored line, so it's easy to check. <b>Decided:</b> the colored box, as drawn.</p>
+  <div class="shots">
+    <figure><img src="img/log-light.png" alt="Log screen with a full-width highlighted note box above Save"><figcaption>Empty note, with hint</figcaption></figure>
+    <figure><img src="img/log-dark.png" alt="Log screen in dark mode with the note box"><figcaption>Empty note, dark</figcaption></figure>
+  </div>
+</section>
+
+<section id="questions">
+  <h2><small>Before I build</small>Decisions and what's left</h2>
+  <ol class="qs">
+    <li><b>Theme scope: follows the account.</b> Your agent runs one new database file when publishing (<code>supabase/migration-v3.1.sql</code>). It adds a <code>color_theme</code> column to the settings table, limited to the 8 theme names. Existing access rules already cover it. Older app versions leave it alone, and the new app keeps working if it runs before the file is applied.</li>
+    <li><b>Other: new names are saved to your list by default</b> (untick to use a name just once).</li>
+    <li><b>Note: the colored box, as drawn.</b></li>
+    <li><b>Back button: fix Android</b> (APK, Chrome and home screen). iPhone keeps its on-screen close buttons.</li>
+    <li><b>Still open:</b> are the 8 themes right, and is there anything to add to the FAQ? If this round looks good, tell me to build.</li>
+  </ol>
+</section>
+
+<footer>Gastos · mockups for branch <code>claude/nice-galileo-0sd80d</code>. Main is untouched.</footer>
+</div>
+
+<script>
+const TH=[['green','Gastos green'],['pink','Baby pink'],['lavender','Lavender'],['ocean','Ocean blue'],['teal','Mint teal'],['coral','Sunset coral'],['sunflower','Sunflower'],['latte','Latte']];
+const g=document.getElementById('gallery');
+function show(mode){
+  g.innerHTML=TH.map(([k,n])=>`<figure><img src="img/theme-${k}-${mode}.png" alt="Log screen in ${n}, ${mode} mode" loading="lazy"><figcaption>${n}</figcaption></figure>`).join('');
+  document.getElementById('g-light').setAttribute('aria-pressed',mode==='light');
+  document.getElementById('g-dark').setAttribute('aria-pressed',mode==='dark');
+}
+document.getElementById('g-light').onclick=()=>show('light');
+document.getElementById('g-dark').onclick=()=>show('dark');
+show('light');
+</script>

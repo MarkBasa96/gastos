@@ -6,7 +6,7 @@ import { formatMoney } from './data';
 import { prefersReducedMotion } from './fx';
 import { ChevronDown, type LucideIcon } from './lucide';
 import { Theme, cardRadius, radius } from './theme';
-import { Button, PigIcon, T, useProgress } from './ui';
+import { Button, PigIcon, T, backdropBlur, useProgress } from './ui';
 
 /** Money with the minus before the currency mark: "-₱620.00", never "₱-620.00" (Erina v3 review). */
 export function signedMoney(cents: number, currency: string): string {
@@ -91,6 +91,7 @@ export function ConfirmDialog({
   danger,
   onCancel,
   onConfirm,
+  focusCancel = true,
 }: {
   visible: boolean;
   t: Theme;
@@ -101,6 +102,8 @@ export function ConfirmDialog({
   danger?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  /** A pop-up that asks for text puts focus in its own field instead of on Cancel. */
+  focusCancel?: boolean;
 }) {
   // One press only: a double tap on the action must not save twice (Kenshin L10). A ref, not state:
   // two taps can land before React re-renders (the v3 harness caught exactly that).
@@ -113,14 +116,14 @@ export function ConfirmDialog({
     setBusy(false);
     used.current = false;
     // Focus lands on Cancel, never on the destructive button (Kenshin L10).
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && focusCancel) {
       const timer = setTimeout(() => (cancelRef.current as unknown as HTMLElement | null)?.focus?.({ preventScroll: true }), 30);
       return () => clearTimeout(timer);
     }
   }, [visible]);
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent>
-      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: t.scrim }]} onPress={onCancel} accessibilityLabel="Cancel" />
+      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: t.scrim }, backdropBlur]} onPress={onCancel} accessibilityLabel="Cancel" />
       <View style={styles.center} pointerEvents="box-none">
         <View style={[styles.dialog, { backgroundColor: t.surface, borderColor: t.border }]} accessibilityViewIsModal accessibilityRole="alert">
           <T size={20} w="bold" color={t.text} accessibilityRole="header">

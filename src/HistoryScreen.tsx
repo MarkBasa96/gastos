@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Expense, Kind, MONTHS, Rates, SHORT_MONTHS, convert, formatMoney, localDate, parseLocalDate, paidLabel, sumIn } from './data';
 import { whenLabel } from './EntryForm';
-import { ExpenseRow } from './ExpenseRow';
+import { EntryDetails, ExpenseRow } from './ExpenseRow';
 import { CountUp, Skeleton } from './motion';
 import { DateRange, RangeSheet, rangeLabel } from './sheets';
 import { Theme, radius } from './theme';
@@ -114,13 +114,8 @@ export function HistoryScreen({
   const spentSlices = useMemo(() => slicesOf(expenseList), [expenseList, rates, currency, t]); // eslint-disable-line react-hooks/exhaustive-deps
   const incomeSlices = useMemo(() => slicesOf(incomeList), [incomeList, rates, currency, t]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Two taps to edit (Joe): the first tap arms a row and shows "Edit ›"; it disarms by itself.
-  const [armed, setArmed] = useState<string | null>(null);
-  useEffect(() => {
-    if (!armed) return;
-    const timer = setTimeout(() => setArmed(null), 4000);
-    return () => clearTimeout(timer);
-  }, [armed]);
+  // One tap shows the details; Edit is a button in there (Joe v3.1).
+  const [viewing, setViewing] = useState<Expense | null>(null);
 
   const page = list.slice(0, shown);
   const groups = useMemo(() => {
@@ -383,7 +378,7 @@ export function HistoryScreen({
               </T>
               <Card t={t}>
                 {g.items.map((e, i) => (
-                  <ExpenseRow key={e.id} e={e} t={t} currency={currency} rates={rates} first={i === 0} onPress={onEdit} armed={armed === e.id} onArm={setArmed} />
+                  <ExpenseRow key={e.id} e={e} t={t} currency={currency} rates={rates} first={i === 0} onPress={setViewing} />
                 ))}
               </Card>
             </View>
@@ -419,6 +414,17 @@ export function HistoryScreen({
           }}
         />
       )}
+      <EntryDetails
+        e={viewing}
+        t={t}
+        currency={currency}
+        rates={rates}
+        onClose={() => setViewing(null)}
+        onEdit={(e) => {
+          setViewing(null);
+          onEdit(e);
+        }}
+      />
     </ScrollView>
   );
 }
