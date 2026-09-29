@@ -1,4 +1,4 @@
-import { Calendar, Lock, Plus, StickyNote, Wallet } from './lucide';
+import { Calendar, Check, Lock, Pencil, StickyNote, Wallet, X } from './lucide';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import {
@@ -29,7 +29,24 @@ export type Draft = {
   group: PayGroup;
   date: string;
   note: string;
+  /** Tapped Other: what it really was, like "Haircut" (Joe v3.1). Empty = plain Other. */
+  other: string;
+  /** Keep that name as a tile for next time (expenses only). */
+  keepOther: boolean;
 };
+
+const OTHER = new Set(['Other', 'Other income']);
+const OTHER_MAX = 24; // same as Settings → Categories
+
+/** Names only: no control or direction-flipping characters, single spaces, at most 24 characters. */
+function cleanName(s: string): string {
+  return s
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, OTHER_MAX)
+    .trim();
+}
 
 export function emptyDraft(last?: { paidWith: string; group: PayGroup }): Draft {
   return {
@@ -40,6 +57,8 @@ export function emptyDraft(last?: { paidWith: string; group: PayGroup }): Draft 
     group: last?.group ?? 'cash',
     date: localDate(),
     note: '',
+    other: '',
+    keepOther: true,
   };
 }
 
@@ -53,6 +72,8 @@ export function draftFrom(e: Expense, labels: PayLabel[]): Draft {
     group: g,
     date: e.date,
     note: e.note,
+    other: '',
+    keepOther: false,
   };
 }
 
@@ -68,7 +89,7 @@ export function whenLabel(iso: string): string {
 
 export type EntryFormHandle = {
   /** Validates; returns the parsed values or null and shows the errors. */
-  take: () => { cents: number; category: string } | null;
+  take: () => { cents: number; category: string; newTile: string | null } | null;
   focusAmount: () => void;
 };
 
@@ -85,8 +106,10 @@ export const EntryForm = forwardRef<
     onSubmit?: () => void;
     /** Editing: an expense stays an expense and income stays income (Joe, v3). */
     lockKind?: boolean;
+    /** Offer "Keep as a tile" for a named Other (the Log screen; editing doesn't). */
+    canKeep?: boolean;
   }
->(function EntryForm({ t, draft, onChange, currency, customCategories, labels, onAddLabel, onSubmit, lockKind }, ref) {
+>(function EntryForm({ t, draft, onChange, currency, customCategories, labels, onAddLabel, onSubmit, lockKind, canKeep }, ref) {
   const [tried, setTried] = useState(false);
   const [gridW, setGridW] = useState(0);
   const [paySheet, setPaySheet] = useState(false);
@@ -107,20 +130,28 @@ export const EntryForm = forwardRef<
       : null;
   const categoryError = tried && !draft.category ? (draft.kind === 'income' ? 'Pick where it came from.' : 'Pick what it was for.') : null;
 
+  const cats = draft.kind === 'income' ? [...INCOME_CATEGORIES] : [...CATEGORIES, ...customCategories];
+  // Keep a legacy/removed category visible when editing an old entry that uses it.
+  if (draft.category && !cats.includes(draft.category)) cats.push(draft.category);
+
+  const otherOn = !!draft.category && OTHER.has(draft.category);
+  const otherName = otherOn ? cleanName(draft.other) : '';
+  // "food" typed into Other is just Food; any known name keeps its own spelling.
+  const known = [...CATEGORIES, ...INCOME_CATEGORIES, ...customCategories].find((c) => c.toLowerCase() === otherName.toLowerCase());
+  const isNewName = !!otherName && !known;
+  const showKeep = !!canKeep && draft.kind === 'expense' && isNewName;
+
   useImperativeHandle(ref, () => ({
     take: () => {
       setTried(true);
       if (cents === null || !draft.category) return null;
       setTried(false);
-      setNoteOpen(false); // the note shows as a chip again, whatever the browser did with focus
-      return { cents, category: draft.category };
+      setNoteOpen(false); // the note shows as a box again, whatever the browser did with focus
+      const category = otherName ? known ?? otherName : draft.category;
+      return { cents, category, newTile: showKeep && draft.keepOther ? otherName : null };
     },
     focusAmount: () => amountRef.current?.focus(),
   }));
-
-  const cats = draft.kind === 'income' ? [...INCOME_CATEGORIES] : [...CATEGORIES, ...customCategories];
-  // Keep a legacy/removed category visible when editing an old entry that uses it.
-  if (draft.category && !cats.includes(draft.category)) cats.push(draft.category);
 
   return (
     <View>
@@ -183,11 +214,13 @@ export const EntryForm = forwardRef<
               key={c}
               onPress={() => {
                 set({ category: c });
-                Keyboard.dismiss(); // keeps Save in reach, right under the chips
+                // Other asks what it was, so its box takes the keyboard; any other tile keeps Save in reach.
+                if (!OTHER.has(c)) Keyboard.dismiss();
               }}
               accessibilityRole="radio"
               accessibilityState={{ checked: on }}
-              accessibilityLabel={c}
+              aria-checked={on}
+              accessibilityLabel={on && OTHER.has(c) && otherName ? `${c}: ${otherName}` : c}
               style={({ pressed }) => [
                 styles.cat,
                 gridW ? { width: Math.floor((gridW - 3 * 8) / 4) } : null,
@@ -198,30 +231,83 @@ export const EntryForm = forwardRef<
                 },
               ]}
             >
+              {on && OTHER.has(c) && (
+                <View style={styles.pen}>
+                  <Pencil size={11} color={t.accent} strokeWidth={2.2} />
+                </View>
+              )}
               <Icon size={20} color={on ? t.accent : t.muted} strokeWidth={1.8} />
               {/* Long names ("Other income") drop to 12 so they fit a quarter-width tile (Erina) */}
-              <T size={c.length > 10 ? 12 : 13} w={on ? 'semibold' : 'medium'} color={t.text} numberOfLines={1}>
-                {c}
-              </T>
+              {(() => {
+                const shown = on && OTHER.has(c) && otherName ? otherName : c;
+                return (
+                  <T size={shown.length > 10 ? 12 : 13} w={on ? 'semibold' : 'medium'} color={t.text} numberOfLines={1} style={{ maxWidth: '92%' }}>
+                    {shown}
+                  </T>
+                );
+              })()}
             </Pressable>
           );
         })}
       </View>
       {categoryError && <T size={14} color={t.danger} style={{ marginTop: 6 }}>{categoryError}</T>}
 
-      {/* Layout C (Joe v3): wallet, date and note as chips, so Save sits right under What for? */}
+      {otherOn && (
+        <View style={[styles.other, { borderColor: t.border, backgroundColor: t.surface }]}>
+          <View style={styles.otherHead}>
+            <Pencil size={15} color={t.accent} strokeWidth={2} />
+            <T size={14} w="semibold" color={t.text}>What was it?</T>
+            <T size={13} color={t.muted}>Optional</T>
+          </View>
+          <Field
+            t={t}
+            value={draft.other}
+            onChangeText={(v) => set({ other: v })}
+            placeholder={draft.kind === 'income' ? 'e.g. Bonus' : 'e.g. Haircut'}
+            maxLength={OTHER_MAX}
+            autoFocus={!draft.other}
+            returnKeyType="done"
+            onSubmitEditing={() => Keyboard.dismiss()}
+            accessibilityLabel="What was it?"
+            right={
+              draft.other ? (
+                <Pressable onPress={() => set({ other: '' })} accessibilityRole="button" accessibilityLabel="Clear" hitSlop={10}>
+                  <X size={16} color={t.muted} strokeWidth={2} />
+                </Pressable>
+              ) : undefined
+            }
+          />
+          {showKeep && (
+            <Pressable
+              onPress={() => set({ keepOther: !draft.keepOther })}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: draft.keepOther }}
+              aria-checked={draft.keepOther}
+              style={styles.keep}
+            >
+              <View style={[styles.box, draft.keepOther ? { backgroundColor: t.accent, borderColor: t.accent } : { borderColor: t.border }]}>
+                {draft.keepOther && <Check size={14} color={t.accentText} strokeWidth={3} />}
+              </View>
+              <T size={14} w="medium" color={t.text} style={{ flex: 1 }}>Keep “{otherName}” as a tile for next time</T>
+            </Pressable>
+          )}
+          {!!otherName && !showKeep && known && known !== draft.category && (
+            <T size={13} color={t.muted} style={{ marginTop: 8 }}>Saves under {known}.</T>
+          )}
+        </View>
+      )}
+
+      {/* Layout C (Joe v3): wallet and date as chips, so Save sits right under What for? */}
       <View style={styles.chips}>
         <Chip t={t} icon={Wallet} label={draft.paidWith || 'Cash'} chevron onPress={() => setPaySheet(true)}
           a11y={`${draft.kind === 'income' ? 'Received in' : 'Paid with'}: ${draft.paidWith || 'Cash'}`} />
         <Chip t={t} icon={Calendar} label={whenLabel(draft.date)} chevron onPress={() => setDateSheet(true)} a11y={`When: ${whenLabel(draft.date)}`} />
-        {draft.note.trim() && !noteOpen ? (
-          <Chip t={t} icon={StickyNote} label={draft.note.trim()} grow onPress={() => setNoteOpen(true)} a11y={`Note: ${draft.note.trim()}. Tap to change.`} />
-        ) : !noteOpen ? (
-          <Chip t={t} icon={Plus} label="Note" add onPress={() => setNoteOpen(true)} a11y="Add a note" />
-        ) : null}
       </View>
-      {noteOpen && (
-        <View style={{ marginTop: 10 }}>
+
+      {/* The note gets its own full-width box in the theme colour, easy to spot (Joe v3.1). The
+          keyboard still only opens when she taps it. */}
+      {noteOpen ? (
+        <View style={{ marginTop: 12 }}>
           <Field
             t={t}
             value={draft.note}
@@ -236,8 +322,33 @@ export const EntryForm = forwardRef<
             }}
             onBlur={() => setNoteOpen(false)}
             accessibilityLabel="Note"
+            left={<StickyNote size={20} color={t.accent} strokeWidth={2} />}
           />
         </View>
+      ) : (
+        <Pressable
+          onPress={() => setNoteOpen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={draft.note.trim() ? `Note: ${draft.note.trim()}. Tap to change.` : 'Add a note'}
+          style={(st: any) => [
+            styles.note,
+            { borderColor: t.accent, backgroundColor: t.accentSoft, transform: [{ scale: st.pressed ? 0.98 : 1 }] },
+            Platform.OS === 'web' && st.focused ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: t.accent, outlineOffset: 2 } as any) : null,
+          ]}
+        >
+          <StickyNote size={20} color={t.accent} strokeWidth={2} />
+          {draft.note.trim() ? (
+            <>
+              <T size={15} w="medium" color={t.text} numberOfLines={1} style={{ flex: 1 }}>{draft.note.trim()}</T>
+              <Pencil size={16} color={t.accent} strokeWidth={2} />
+            </>
+          ) : (
+            <>
+              <T size={15} w="medium" color={t.muted} numberOfLines={1} style={{ flex: 1 }}>Add a note, like “Jollibee lunch”</T>
+              <T size={12} w="semibold" color={t.accent}>Optional</T>
+            </>
+          )}
+        </Pressable>
       )}
 
       <PaidWithSheet
@@ -279,6 +390,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   chips: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  pen: { position: 'absolute', top: 5, right: 6 },
+  other: { marginTop: 10, borderWidth: 1, borderRadius: 16, padding: 12 },
+  otherHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
+  keep: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, minHeight: 32 },
+  box: { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  note: { marginTop: 12, minHeight: 50, borderWidth: 1.5, borderRadius: radius, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14 },
   locked: { flexDirection: 'row', borderWidth: 1, borderRadius: radius, padding: 3, gap: 3, width: 220 },
   lockedItem: { flex: 1, minHeight: 34, borderRadius: radius - 3, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5 },
 });

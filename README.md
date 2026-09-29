@@ -25,6 +25,15 @@ every design choice: **if logging is inconvenient, she won't keep it up.** So lo
 one category tile, Save, done. The keyboard only opens when you tap the amount, "Paid with"
 remembers your usual wallet, and Save sits right under your thumb.
 
+## What's new in 3.1
+
+- **Color themes.** Eight to pick from in Settings: Gastos green, Baby pink, Lavender, Ocean blue, Mint teal, Sunset coral, Sunflower and Latte. Light and dark both follow it, and when you're signed in it follows your account onto every phone.
+- **FAQ in Settings.** Quick answers, searchable, that work offline: where entries are saved, how safe your data is, backups, the MPIN, and more.
+- **Name your own "Other".** Tap Other and say what it was ("Haircut"). It saves under that name and, if you like, stays as a tile for next time.
+- **A note you can't miss.** The note is now a full-width box above Save, and the save pop-up shows it on its own line.
+- **Pop-ups blur the screen behind them.**
+- **The phone's Back button works again on Android.** 3.0's version was skipped by newer Chrome, so Back closed the app. 3.1 uses Chrome's built-in way to catch Back for pop-ups (CloseWatcher), with the old approach as a fallback.
+
 ## What's new in 3.0
 
 - **Money left this month.** The top card shows income minus spending, with *In* and *Out* underneath. It counts up each time you open the tab.
@@ -114,7 +123,7 @@ npx expo start --web
 
 Set up the database by running, in the Supabase SQL editor: `supabase/schema.sql`, then
 `supabase/migration-v2.sql`, then `supabase/migration-v3.sql` (it creates its own MPIN secret in
-Vault). Feedback emails are optional: add a Brevo API key to Vault as `gastos_brevo_feedback_key`
+Vault), then `supabase/migration-v3.1.sql` (the color theme on the settings row). Feedback emails are optional: add a Brevo API key to Vault as `gastos_brevo_feedback_key`
 and change the addresses in `send_feedback`. Without a key, feedback is still saved.
 
 For a web build, run `npx expo export -p web` and then `node scripts/write-sw.mjs dist`, which

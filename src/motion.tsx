@@ -6,7 +6,7 @@ import { formatMoney } from './data';
 import { prefersReducedMotion } from './fx';
 import { ChevronDown, type LucideIcon } from './lucide';
 import { Theme, cardRadius, radius } from './theme';
-import { Button, PigIcon, T, useProgress } from './ui';
+import { Button, PigIcon, T, backdropBlur, useProgress } from './ui';
 
 /** Money with the minus before the currency mark: "-₱620.00", never "₱-620.00" (Erina v3 review). */
 export function signedMoney(cents: number, currency: string): string {
@@ -120,7 +120,7 @@ export function ConfirmDialog({
   }, [visible]);
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel} statusBarTranslucent>
-      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: t.scrim }]} onPress={onCancel} accessibilityLabel="Cancel" />
+      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: t.scrim }, backdropBlur]} onPress={onCancel} accessibilityLabel="Cancel" />
       <View style={styles.center} pointerEvents="box-none">
         <View style={[styles.dialog, { backgroundColor: t.surface, borderColor: t.border }]} accessibilityViewIsModal accessibilityRole="alert">
           <T size={20} w="bold" color={t.text} accessibilityRole="header">

@@ -24,9 +24,10 @@ type Props = {
   onUndo: (id: string) => void;
   onEdit: (e: Expense) => void;
   onAddLabel: (l: PayLabel) => void;
+  onAddCategory: (c: string) => void;
 };
 
-export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading, onSyncPress, onAdd, onUndo, onAddLabel }: Props) {
+export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading, onSyncPress, onAdd, onUndo, onAddLabel, onAddCategory }: Props) {
   const cur = settings.currency;
   // Remember the last "Paid with", so her usual wallet is one tap away (or zero).
   const last = useMemo(() => {
@@ -41,6 +42,7 @@ export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading
   const [drop, setDrop] = useState(0);
   const [rain, setRain] = useState(0); // tap the pig: the coin shower
   const form = useRef<EntryFormHandle>(null);
+  const newTile = useRef<string | null>(null); // a named Other to keep as a tile, once saved
 
   const now = new Date();
   const monthPrefix = localDate(now).slice(0, 7);
@@ -64,6 +66,7 @@ export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading
     Keyboard.dismiss();
     if (Platform.OS === 'web') (document.activeElement as HTMLElement | null)?.blur?.();
     const cash = draft.paidWith === '' || draft.group === 'cash';
+    newTile.current = v.newTile;
     setAsking({
       id: newId(),
       kind: draft.kind,
@@ -83,6 +86,8 @@ export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading
     setAsking(null);
     if (!e) return;
     onAdd({ ...e, createdAt: Date.now() });
+    if (newTile.current) onAddCategory(newTile.current);
+    newTile.current = null;
     setSaved(e);
     setDrop((n) => n + 1); // the coin drops into the pig
     play('clink', 0.55); // lands with the coin
@@ -151,6 +156,7 @@ export function LogScreen({ t, expenses, settings, rates, sync, waiting, loading
             labels={settings.paymentLabels}
             onAddLabel={onAddLabel}
             onSubmit={ask}
+            canKeep
           />
         </View>
 

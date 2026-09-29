@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
-import { Expense, Settings, cleanCategories, cleanLabels, normalize } from './data';
+import { Expense, Settings, cleanCategories, cleanColorTheme, cleanLabels, normalize } from './data';
 import { pushWithFallback } from './syncCore';
 
 // Both values are public by design (they ship inside the app). Row Level Security protects the data.
@@ -162,21 +162,21 @@ export async function pushNewOnly(rows: Expense[], userId: string): Promise<{ se
 /** Local change wins if it hasn't been pushed yet; otherwise the server copy wins. Appearance stays per-phone. */
 export async function syncSettings(local: Settings, userId: string): Promise<Settings> {
   if (!supabase) return local;
+  const client = supabase;
+  // The colour theme follows the account (v3.1). Until migration-v3.1.sql has run on the server the
+  // column doesn't exist; then sync carries on without it, exactly as 3.0 did.
+  const noColumn = (e: { code?: string } | null) => !!e && (e.code === '42703' || e.code === 'PGRST204');
   if (await settingsDirty()) {
-    const { error } = await supabase.from('user_settings').upsert({
-      user_id: userId,
-      currency: local.currency,
-      categories: local.categories,
-      payment_labels: local.paymentLabels,
-    });
+    const row = { user_id: userId, currency: local.currency, categories: local.categories, payment_labels: local.paymentLabels };
+    let { error } = await client.from('user_settings').upsert({ ...row, color_theme: local.colorTheme });
+    if (noColumn(error)) ({ error } = await client.from('user_settings').upsert(row));
     if (error) throw error;
     await setSettingsDirty(false);
     return local;
   }
-  const { data, error } = await supabase
-    .from('user_settings')
-    .select('currency,categories,payment_labels')
-    .maybeSingle();
+  let res = await client.from('user_settings').select('currency,categories,payment_labels,color_theme').maybeSingle();
+  if (noColumn(res.error)) res = (await client.from('user_settings').select('currency,categories,payment_labels').maybeSingle()) as typeof res;
+  const { data, error } = res;
   if (error) throw error;
   if (!data) return local;
   return {
@@ -184,6 +184,7 @@ export async function syncSettings(local: Settings, userId: string): Promise<Set
     currency: /^[A-Z]{3}$/.test(data.currency) ? data.currency : local.currency,
     categories: cleanCategories(data.categories),
     paymentLabels: Array.isArray(data.payment_labels) && data.payment_labels.length ? cleanLabels(data.payment_labels) : local.paymentLabels,
+    colorTheme: data.color_theme ? cleanColorTheme(data.color_theme) : local.colorTheme,
   };
 }
 

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Appearance } from './theme';
+import { COLOR_THEMES, type Appearance, type ColorTheme } from './theme';
 
 export type Method = 'cash' | 'card';
 export type Kind = 'expense' | 'income';
@@ -27,6 +27,7 @@ export type Settings = {
   categories: string[]; // her own, added after the defaults
   paymentLabels: PayLabel[];
   sounds: boolean; // this phone only, like appearance
+  colorTheme: ColorTheme; // follows the account (v3.1), unlike appearance
 };
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -40,6 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
     { n: 'SeaBank', g: 'ewallet' },
   ],
   sounds: true,
+  colorTheme: 'green',
 };
 
 // Erina v2 §1: one clean word each, 8 total (Miller's range), "Other" stays.
@@ -98,7 +100,12 @@ export function cleanSettings(s: any): Settings {
     categories: cleanCategories(s?.categories),
     paymentLabels: Array.isArray(s?.paymentLabels) ? cleanLabels(s.paymentLabels) : DEFAULT_SETTINGS.paymentLabels,
     sounds: s?.sounds !== false,
+    colorTheme: cleanColorTheme(s?.colorTheme),
   };
+}
+
+export function cleanColorTheme(v: unknown): ColorTheme {
+  return (COLOR_THEMES as readonly unknown[]).includes(v) ? (v as ColorTheme) : 'green';
 }
 
 export async function loadSettings(): Promise<Settings> {

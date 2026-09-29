@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ChevronDown,
   ChevronRight,
+  CircleHelp,
   CloudCheck,
   CloudOff,
   FileDown,
@@ -46,7 +47,8 @@ import { payIcon } from './icons';
 import { ConfirmDialog, Switch } from './motion';
 import { SavedPill, SentCelebration } from './celebrate';
 import { ConvertSheet, CurrencySheet } from './sheets';
-import { Theme } from './theme';
+import { COLOR_THEMES, COLOR_THEME_NAMES, Theme, themeFor } from './theme';
+import { FaqSheet, ThemeSheet } from './helpSheets';
 import { Button, Card, Field, IconTile, Label, Row, Segmented, Sheet, SyncState, T } from './ui';
 
 const LAST_BACKUP_KEY = 'gastos.v1.lastBackup';
@@ -169,6 +171,8 @@ export function SettingsScreen({
   const [askOut, setAskOut] = useState(false);
   const [walletSheet, setWalletSheet] = useState(false);
   const [feedbackSheet, setFeedbackSheet] = useState(false);
+  const [themeSheet, setThemeSheet] = useState(false);
+  const [faqSheet, setFaqSheet] = useState(false);
   const [savedTick, setSavedTick] = useState(0);
   const [diag, setDiag] = useState<string[]>([]);
   const note = (s: string) => TEST_BUILD && setDiag((d) => (d.includes(s) ? d : [...d, s]));
@@ -246,7 +250,7 @@ export function SettingsScreen({
   function doRestore() {
     if (!restore) return;
     if (mode === 'replace') {
-      onReplace(restore.rows, { ...restore.settings, appearance: settings.appearance });
+      onReplace(restore.rows, { ...restore.settings, appearance: settings.appearance, colorTheme: settings.colorTheme });
       setMsg({ text: `Restored ${restoreLive.length} entries from the file.` });
     } else {
       const n = onMerge(missing, foreign);
@@ -357,6 +361,21 @@ export function SettingsScreen({
             ]}
           />
         </Row>
+        <Row t={t} onPress={() => setThemeSheet(true)} label={`Color theme: ${COLOR_THEME_NAMES[settings.colorTheme]}`}>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <T size={16} color={t.text}>Color theme</T>
+              <NewBadge t={t} />
+            </View>
+            <T size={13} color={t.muted}>{COLOR_THEME_NAMES[settings.colorTheme]}</T>
+          </View>
+          <View style={styles.swatches}>
+            {COLOR_THEMES.slice(0, 5).map((k, i) => (
+              <View key={k} style={[styles.swatch, { backgroundColor: themeFor(k, t.dark ? 'dark' : 'light').accent, borderColor: t.surface, marginLeft: i ? -6 : 0 }]} />
+            ))}
+          </View>
+          <ChevronRight size={18} color={t.muted} />
+        </Row>
         <Row t={t}>
           <View style={{ flex: 1, opacity: online ? 1 : 0.55 }}>
             <T size={16} color={t.text}>Currency</T>
@@ -404,9 +423,6 @@ export function SettingsScreen({
         </Row>
         <Row t={t} onPress={() => setWalletSheet(true)} label="Cards and e-wallets">
           <T size={16} color={t.text} style={{ flex: 1 }}>Cards and e-wallets</T>
-          <View style={[styles.badge, { backgroundColor: t.accent }]}>
-            <T size={11} w="bold" color={t.accentText} style={{ letterSpacing: 0.3 }}>NEW</T>
-          </View>
           <T size={13} color={t.muted}>{settings.paymentLabels.length}</T>
           <ChevronRight size={18} color={t.muted} />
         </Row>
@@ -462,11 +478,21 @@ export function SettingsScreen({
       ) : null}
       {msg && <T size={14} color={msg.bad ? t.danger : t.text} style={{ marginTop: 10 }} accessibilityLiveRegion="polite">{msg.text}</T>}
 
-      {account.signedIn && (
-        <>
-          <Label t={t} style={styles.section}>Help</Label>
-          <Card t={t}>
-            <Row t={t} first onPress={online ? () => setFeedbackSheet(true) : undefined} label={online ? 'Send feedback' : 'Send feedback. Needs internet to send'}>
+      <Label t={t} style={styles.section}>Help</Label>
+      <Card t={t}>
+        <Row t={t} first onPress={() => setFaqSheet(true)} label="FAQ">
+          <CircleHelp size={20} color={t.muted} strokeWidth={1.8} />
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <T size={16} color={t.text}>FAQ</T>
+              <NewBadge t={t} />
+            </View>
+            <T size={13} color={t.muted}>Quick answers about Gastos</T>
+          </View>
+          <ChevronRight size={18} color={t.muted} />
+        </Row>
+        {account.signedIn && (
+            <Row t={t} onPress={online ? () => setFeedbackSheet(true) : undefined} label={online ? 'Send feedback' : 'Send feedback. Needs internet to send'}>
               <View style={{ opacity: online ? 1 : 0.5 }}>
                 <MessageSquareHeart size={20} color={t.muted} strokeWidth={1.8} />
               </View>
@@ -485,14 +511,18 @@ export function SettingsScreen({
                 <ChevronRight size={18} color={t.muted} />
               </View>
             </Row>
-          </Card>
+        )}
+      </Card>
+
+      {account.signedIn && (
+        <>
           <Button label="Sign out" kind="text" onPress={() => setAskOut(true)} t={t} style={{ marginTop: 16, alignSelf: 'center', paddingHorizontal: 32, borderColor: t.border, borderRadius: 12 }} />
           <T size={12} color={t.muted} style={{ textAlign: 'center' }}>
             Signing out removes your entries from this phone. They stay safe in your account.
           </T>
         </>
       )}
-      <T size={13} w="medium" color={t.muted} style={{ textAlign: 'center', marginTop: 12 }}>Gastos 3.0{TEST_BUILD ? ` · test build ${TEST_BUILD}` : ''}</T>
+      <T size={13} w="medium" color={t.muted} style={{ textAlign: 'center', marginTop: 12 }}>Gastos 3.1{TEST_BUILD ? ` · test build ${TEST_BUILD}` : ''}</T>
       <T size={12} color={t.muted} style={{ textAlign: 'center', marginTop: 2 }}>Made by Joemark Basa</T>
 
       {/* ---- sheets ---- */}
@@ -537,6 +567,15 @@ export function SettingsScreen({
           }}
         />
       )}
+      <ThemeSheet
+        visible={themeSheet}
+        onClose={() => setThemeSheet(false)}
+        t={t}
+        value={settings.colorTheme}
+        signedIn={account.signedIn}
+        onPick={(c) => c !== settings.colorTheme && save({ ...settings, colorTheme: c })}
+      />
+      <FaqSheet visible={faqSheet} onClose={() => setFaqSheet(false)} t={t} />
       <CurrencySheet visible={curSheet} onClose={() => setCurSheet(false)} t={t} value={settings.currency} onPick={pickCurrency} />
       <ConvertSheet
         visible={!!convertTo}
@@ -937,7 +976,17 @@ function FeedbackSheet({
   );
 }
 
+function NewBadge({ t }: { t: Theme }) {
+  return (
+    <View style={[styles.badge, { backgroundColor: t.accent }]}>
+      <T size={11} w="bold" color={t.accentText} style={{ letterSpacing: 0.3 }}>NEW</T>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  swatches: { flexDirection: 'row', marginRight: 2 },
+  swatch: { width: 18, height: 18, borderRadius: 9, borderWidth: 2 },
   page: { padding: 16, paddingTop: 4, paddingBottom: 110, maxWidth: 560, width: '100%', alignSelf: 'center' },
   h1: { letterSpacing: -0.4, lineHeight: 34, minHeight: 52, paddingTop: 9, marginBottom: 8 },
   pad: { padding: 16 },

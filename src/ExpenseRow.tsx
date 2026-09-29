@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, View } from 'react-native';
-import { ChevronRight, Pencil } from './lucide';
+import { ChevronRight, Pencil, StickyNote } from './lucide';
 import { Expense, PayLabel, Rates, convert, formatMoney, paidLabel } from './data';
-import { EntryForm, EntryFormHandle, draftFrom } from './EntryForm';
+import { EntryForm, EntryFormHandle, draftFrom, whenLabel } from './EntryForm';
 import { play } from './fx';
 import { ConfirmDialog } from './motion';
 import { categoryIcon } from './icons';
@@ -98,18 +98,27 @@ const styles = StyleSheet.create({
 export function EntryPreview({ e, t, currency, rates }: { e: Expense; t: Theme; currency: string; rates: Rates | null }) {
   const m = money(e, currency, rates);
   const income = e.kind === 'income';
-  const detail = [e.note, e.paidWith || (e.method === 'card' ? 'Card' : 'Cash')].filter(Boolean).join(' · ');
+  const detail = [e.paidWith || (e.method === 'card' ? 'Card' : 'Cash'), whenLabel(e.date)].join(' · ');
   return (
-    <View style={{ borderRadius: 20, borderWidth: 1, borderColor: t.border, backgroundColor: t.bg, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 }}>
-      <IconTile icon={categoryIcon(e.category)} t={t} />
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <T size={15} w="semibold" color={t.text} numberOfLines={1}>{e.category}</T>
-        <T size={13} color={t.muted} numberOfLines={1}>{detail}</T>
+    <View style={{ borderRadius: 20, borderWidth: 1, borderColor: t.border, backgroundColor: t.bg, paddingHorizontal: 14, paddingVertical: 12 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <IconTile icon={categoryIcon(e.category)} t={t} />
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <T size={15} w="semibold" color={t.text} numberOfLines={1}>{e.category}</T>
+          <T size={13} color={t.muted} numberOfLines={1}>{detail}</T>
+        </View>
+        <T size={15} w="semibold" color={income ? t.accent : t.text} num>
+          {income ? '+' : '−'}
+          {m.main}
+        </T>
       </View>
-      <T size={15} w="semibold" color={income ? t.accent : t.text} num>
-        {income ? '+' : '−'}
-        {m.main}
-      </T>
+      {/* The note on its own line, in the theme colour, so it's easy to check before saving (Joe v3.1). */}
+      {e.note ? (
+        <View style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: t.accentSoft, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8 }}>
+          <StickyNote size={14} color={t.accent} strokeWidth={2} />
+          <T size={13} w="medium" color={t.text} style={{ flex: 1 }}>{e.note}</T>
+        </View>
+      ) : null}
     </View>
   );
 }

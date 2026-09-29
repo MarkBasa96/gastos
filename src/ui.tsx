@@ -236,8 +236,8 @@ export function Segmented<V extends string>({
 
 // ---------- Text field with a visible focus ring ----------
 
-export const Field = forwardRef<TextInput, TextInputProps & { t: Theme; error?: boolean; big?: boolean; left?: ReactNode }>(
-  function Field({ t, error, big, left, style, onFocus, onBlur, ...rest }, ref) {
+export const Field = forwardRef<TextInput, TextInputProps & { t: Theme; error?: boolean; big?: boolean; left?: ReactNode; right?: ReactNode }>(
+  function Field({ t, error, big, left, right, style, onFocus, onBlur, ...rest }, ref) {
     const [focused, setFocused] = useState(false);
     return (
       <View
@@ -276,6 +276,7 @@ export const Field = forwardRef<TextInput, TextInputProps & { t: Theme; error?: 
           ]}
           {...rest}
         />
+        {right}
       </View>
     );
   },
@@ -396,7 +397,7 @@ export function Sheet({
   }, [visible, slide]);
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
-      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: t.scrim }]} onPress={onClose} accessibilityLabel="Close" />
+      <Pressable style={[StyleSheet.absoluteFill, { backgroundColor: t.scrim }, backdropBlur]} onPress={onClose} accessibilityLabel="Close" />
       <Animated.View
         accessibilityViewIsModal
         style={[
@@ -426,6 +427,10 @@ export function Sheet({
     </Modal>
   );
 }
+
+/** Behind every pop-up and sheet, the screen goes soft (Joe v3.1). Web only; the app ships as web. */
+export const backdropBlur =
+  Platform.OS === 'web' ? ({ backdropFilter: 'blur(9px) saturate(120%)', WebkitBackdropFilter: 'blur(9px) saturate(120%)' } as any) : null;
 
 // ---------- Glass hero (mesh behind a neutral scrim; text always opaque) ----------
 
