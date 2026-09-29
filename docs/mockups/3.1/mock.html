@@ -111,6 +111,20 @@ svg.i{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;f
 .faq .ans{padding:0 16px 14px 16px;font-size:14.5px;line-height:21px;color:var(--muted);font-weight:400}
 .faq .open{background:var(--accentSoft)}
 .search{height:44px;border:1px solid var(--border);border-radius:12px;background:var(--surface);display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--muted);font-size:15px;margin-top:14px}
+.odlg{position:absolute;left:16px;right:16px;top:74px;background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:18px 18px 16px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.odlg h3{font-size:20px;font-weight:700}
+.olab{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:var(--muted);margin:14px 2px 8px}
+.obox{position:relative;height:266px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--bg)}
+.orow{display:flex;align-items:center;gap:12px;height:48px;padding:0 30px 0 14px;border-top:1px solid var(--border);font-size:16px;color:var(--text)}
+.orow:first-child{border-top:0}
+.orow .ic{color:var(--muted);display:flex}
+.orow.on{background:var(--accentSoft);font-weight:600}
+.orow.on .ic{color:var(--accent)}
+.orow mark{background:transparent;color:var(--accent);font-weight:700}
+.otrack{position:absolute;top:6px;bottom:6px;right:5px;width:6px;border-radius:3px;background:var(--border);opacity:.7}
+.othumb{position:absolute;right:5px;width:6px;border-radius:3px;background:var(--muted)}
+.oadd{display:flex;align-items:center;gap:10px;height:52px;padding:0 14px;border:1.5px solid var(--accent);border-radius:14px;background:var(--accentSoft);color:var(--accent);font-size:16px;font-weight:600;margin-top:12px}
+.oempty{font-size:14px;color:var(--muted);padding:14px}
 .backhint{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);background:var(--text);color:var(--bg);font-size:14px;font-weight:600;padding:10px 16px;border-radius:22px;white-space:nowrap}
 </style></head><body>
 <script>
@@ -164,6 +178,7 @@ const IC = {
  palette:'<circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>',
  check:'<path d="M20 6 9 17l-5-5"/>',
  x:'<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+ tag:'<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
  pen:'<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
  pig:'<path d="M11 17h3v2a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1v-3a3.16 3.16 0 0 0 2-2h1a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1h-1a5 5 0 0 0-2-4V3a4 4 0 0 0-3.2 1.6l-.3.4H11a6 6 0 0 0-6 6v1a5 5 0 0 0 2 4v3a1 1 0 0 0 1 1h2a1 1 0 0 0 1-1z"/><path d="M16 10h.01"/><path d="M2 8v1a2 2 0 0 0 2 2h1"/>',
  msg:'<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
@@ -187,7 +202,7 @@ const CATS = [['Food','utensils'],['Transport','bus'],['Load','phone'],['Bills',
 function log(o={}){
   const tiles = CATS.map(([c,i])=>{
     const on = o.cat===c; let label = c, icon=i, pen='';
-    if(c==='Other' && o.other){ label = o.other; pen = `<span class="pen">${ic('pen',11,2.2)}</span>`; }
+    if(c==='Other' && (o.other||o.picked)){ label = o.other||o.picked; pen = `<span class="pen">${ic('pen',11,2.2)}</span>`; }
     return `<div class="tile ${on?'on':''}">${pen}${ic(icon,20)}<b>${label}</b></div>`;
   }).join('');
   const otherBox = o.other ? `<div class="other">
@@ -262,6 +277,24 @@ function faqSheet(){
    <div class="card faq" style="margin-top:12px">${rows}</div></div>`;
 }
 
+const MYLIST = ['Haircut','Parking','Coffee','Condo dues','Cooking gas','Pets','Laundry','Gym','Gifts','Rent','Tuition','Netflix'];
+function otherDlg(q, typed){
+  const ql = (q||'').toLowerCase();
+  const hits = MYLIST.filter(n => !ql || n.toLowerCase().includes(ql));
+  const hl = n => { if(!ql) return n; const i=n.toLowerCase().indexOf(ql); return n.slice(0,i)+'<mark>'+n.slice(i,i+ql.length)+'</mark>'+n.slice(i+ql.length); };
+  const rows = hits.map(n => `<div class="orow"><span class="ic">${ic('tag',18)}</span><span style="flex:1">${hl(n)}</span></div>`).join('');
+  const scroll = hits.length > 5;
+  const thumbH = scroll ? Math.max(40, Math.round(254 * 5.5 / hits.length)) : 0;
+  const field = `<div class="field focus" style="margin-top:14px">${ic('search',18,2,'style="color:var(--muted)"')}<span style="flex:1;${q?'':'color:var(--muted)'}">${q||'Search, or type a new one'}</span>${q?`<span style="width:1.5px;height:20px;background:var(--accent)"></span>${ic('x',16,2,'style="color:var(--muted)"')}`:''}</div>`;
+  const add = typed ? `<div class="oadd">${ic('plus',18,2.2)}<span style="flex:1">Use “${q}”</span></div>
+     <div class="check" style="margin:10px 2px 0"><div class="box on">${ic('check',14,3)}</div>Save “${q}” to my list</div>` : '';
+  const list = hits.length
+    ? `<div class="olab"><span>${q ? 'In your list' : 'Your list'}</span><span>${hits.length}</span></div><div class="obox">${rows}${scroll?`<div class="otrack"></div><div class="othumb" style="top:6px;height:${thumbH}px"></div>`:''}</div>`
+    : `<div class="olab"><span>Your list</span></div><div class="obox" style="height:auto"><div class="oempty">Nothing in your list matches “${q}”.</div></div>`;
+  return `<div class="veil"></div><div class="odlg"><h3>What was it?</h3>${field}${add}${list}
+    <div class="row2"><div class="btn out">Cancel</div><div class="btn" style="font-size:16px;${typed?'':'opacity:.45'}">Done</div></div></div>`;
+}
+
 function confirmDlg(){
   return `<div class="veil"></div><div class="dialog"><h3>Save this expense?</h3>
    <div class="prev"><div class="ic">${ic('dots',20)}</div><div class="m"><b>Haircut</b><s>Cash · Today</s></div><div class="a">−₱150.00</div></div><div class="n" style="margin-top:10px">${ic('note',14,2)}Barber near the office</div>
@@ -274,6 +307,10 @@ else if (S==='other') html = log({cat:'Other', other:'Haircut', amt:'150', note:
 else if (S==='confirm') html = log({cat:'Other', other:'Haircut', amt:'150', note:'Barber near the office', scroll:150}) + confirmDlg();
 else if (S==='filled') html = log({cat:'Food', amt:'185', note:'Jollibee lunch', wallet:'GCash'});
 else if (S==='back') html = log({backhint:true});
+else if (S==='grid8') html = log({cat:'Other', picked:'Coffee', amt:'120', note:'Iced latte'});
+else if (S==='olist') html = log({cat:'Other', amt:'120'}) + otherDlg('', false);
+else if (S==='osearch') html = log({cat:'Other', amt:'120'}) + otherDlg('co', false);
+else if (S==='onew') html = log({cat:'Other', amt:'40'}) + otherDlg('Tricycle', true);
 else if (S==='settings') html = settings();
 else if (S==='themes') html = settings() + themeSheet();
 else if (S==='faq') html = settings() + faqSheet();
