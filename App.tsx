@@ -98,7 +98,7 @@ async function readPinView(uid: string | null): Promise<PinView> {
   return 'none';
 }
 
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.1.1';
 // Joe v3: no lock when switching apps; only a fresh open, or after this long away (Kenshin L4).
 const IDLE_LOCK_MS = 30 * 60_000;
 
