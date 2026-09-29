@@ -16,7 +16,7 @@ import {
   parseLocalDate,
 } from './data';
 import { categoryIcon } from './icons';
-import { Chip } from './motion';
+import { Chip, ConfirmDialog } from './motion';
 import { DateSheet, PaidWithSheet } from './sheets';
 import { Theme, radius } from './theme';
 import { Field, Label, Segmented, T } from './ui';
@@ -115,6 +115,10 @@ export const EntryForm = forwardRef<
   const [paySheet, setPaySheet] = useState(false);
   const [dateSheet, setDateSheet] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
+  // Tapping Other asks "What was it?" in a pop-up (Joe v3.1). Cancel puts back what was picked before.
+  const [otherAsk, setOtherAsk] = useState<{ category: string | null; other: string } | null>(null);
+  const [otherText, setOtherText] = useState('');
+  const [otherKeep, setOtherKeep] = useState(true);
   const amountRef = useRef<TextInput>(null);
   const set = (p: Partial<Draft>) => onChange({ ...draft, ...p });
 
@@ -140,6 +144,10 @@ export const EntryForm = forwardRef<
   const known = [...CATEGORIES, ...INCOME_CATEGORIES, ...customCategories].find((c) => c.toLowerCase() === otherName.toLowerCase());
   const isNewName = !!otherName && !known;
   const showKeep = !!canKeep && draft.kind === 'expense' && isNewName;
+  // The same rules, live, for what's typed in the pop-up.
+  const askName = cleanName(otherText);
+  const askKnown = askName ? [...CATEGORIES, ...INCOME_CATEGORIES, ...customCategories].find((c) => c.toLowerCase() === askName.toLowerCase()) : undefined;
+  const askKeep = !!canKeep && draft.kind === 'expense' && !!askName && !askKnown;
 
   useImperativeHandle(ref, () => ({
     take: () => {
@@ -213,9 +221,15 @@ export const EntryForm = forwardRef<
             <Pressable
               key={c}
               onPress={() => {
+                if (OTHER.has(c)) {
+                  setOtherAsk({ category: draft.category, other: draft.other });
+                  setOtherText(on ? draft.other : '');
+                  setOtherKeep(on ? draft.keepOther : true);
+                  set({ category: c });
+                  return;
+                }
                 set({ category: c });
-                // Other asks what it was, so its box takes the keyboard; any other tile keeps Save in reach.
-                if (!OTHER.has(c)) Keyboard.dismiss();
+                Keyboard.dismiss(); // keeps Save in reach, right under the chips
               }}
               accessibilityRole="radio"
               accessibilityState={{ checked: on }}
@@ -251,51 +265,6 @@ export const EntryForm = forwardRef<
         })}
       </View>
       {categoryError && <T size={14} color={t.danger} style={{ marginTop: 6 }}>{categoryError}</T>}
-
-      {otherOn && (
-        <View style={[styles.other, { borderColor: t.border, backgroundColor: t.surface }]}>
-          <View style={styles.otherHead}>
-            <Pencil size={15} color={t.accent} strokeWidth={2} />
-            <T size={14} w="semibold" color={t.text}>What was it?</T>
-            <T size={13} color={t.muted}>Optional</T>
-          </View>
-          <Field
-            t={t}
-            value={draft.other}
-            onChangeText={(v) => set({ other: v })}
-            placeholder={draft.kind === 'income' ? 'e.g. Bonus' : 'e.g. Haircut'}
-            maxLength={OTHER_MAX}
-            autoFocus={!draft.other}
-            returnKeyType="done"
-            onSubmitEditing={() => Keyboard.dismiss()}
-            accessibilityLabel="What was it?"
-            right={
-              draft.other ? (
-                <Pressable onPress={() => set({ other: '' })} accessibilityRole="button" accessibilityLabel="Clear" hitSlop={10}>
-                  <X size={16} color={t.muted} strokeWidth={2} />
-                </Pressable>
-              ) : undefined
-            }
-          />
-          {showKeep && (
-            <Pressable
-              onPress={() => set({ keepOther: !draft.keepOther })}
-              accessibilityRole="checkbox"
-              accessibilityState={{ checked: draft.keepOther }}
-              aria-checked={draft.keepOther}
-              style={styles.keep}
-            >
-              <View style={[styles.box, draft.keepOther ? { backgroundColor: t.accent, borderColor: t.accent } : { borderColor: t.border }]}>
-                {draft.keepOther && <Check size={14} color={t.accentText} strokeWidth={3} />}
-              </View>
-              <T size={14} w="medium" color={t.text} style={{ flex: 1 }}>Keep “{otherName}” as a tile for next time</T>
-            </Pressable>
-          )}
-          {!!otherName && !showKeep && known && known !== draft.category && (
-            <T size={13} color={t.muted} style={{ marginTop: 8 }}>Saves under {known}.</T>
-          )}
-        </View>
-      )}
 
       {/* Layout C (Joe v3): wallet and date as chips, so Save sits right under What for? */}
       <View style={styles.chips}>
@@ -351,6 +320,64 @@ export const EntryForm = forwardRef<
         </Pressable>
       )}
 
+      <ConfirmDialog
+        visible={!!otherAsk}
+        t={t}
+        title={draft.kind === 'income' ? 'Where did it come from?' : 'What was it?'}
+        action="Done"
+        focusCancel={false}
+        onCancel={() => {
+          if (otherAsk) set({ category: otherAsk.category, other: otherAsk.other });
+          setOtherAsk(null);
+        }}
+        onConfirm={() => {
+          set({ other: otherText, keepOther: otherKeep });
+          setOtherAsk(null);
+          Keyboard.dismiss();
+        }}
+      >
+        <Field
+          t={t}
+          value={otherText}
+          onChangeText={setOtherText}
+          placeholder={draft.kind === 'income' ? 'e.g. Bonus' : 'e.g. Haircut'}
+          maxLength={OTHER_MAX}
+          autoFocus
+          returnKeyType="done"
+          onSubmitEditing={() => {
+            set({ other: otherText, keepOther: otherKeep });
+            setOtherAsk(null);
+          }}
+          accessibilityLabel={draft.kind === 'income' ? 'Where did it come from?' : 'What was it?'}
+          left={<Pencil size={18} color={t.accent} strokeWidth={2} />}
+          right={
+            otherText ? (
+              <Pressable onPress={() => setOtherText('')} accessibilityRole="button" accessibilityLabel="Clear" hitSlop={10}>
+                <X size={16} color={t.muted} strokeWidth={2} />
+              </Pressable>
+            ) : undefined
+          }
+        />
+        {askKeep ? (
+          <Pressable
+            onPress={() => setOtherKeep(!otherKeep)}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: otherKeep }}
+            aria-checked={otherKeep}
+            style={styles.keep}
+          >
+            <View style={[styles.box, otherKeep ? { backgroundColor: t.accent, borderColor: t.accent } : { borderColor: t.border }]}>
+              {otherKeep && <Check size={14} color={t.accentText} strokeWidth={3} />}
+            </View>
+            <T size={14} w="medium" color={t.text} style={{ flex: 1 }}>Keep “{askName}” as a tile for next time</T>
+          </Pressable>
+        ) : (
+          <T size={13} color={t.muted} style={{ marginTop: 10, lineHeight: 18 }}>
+            {askKnown ? `Saves under ${askKnown}.` : `Optional. Leave it empty to save as plain ${draft.kind === 'income' ? 'Other income' : 'Other'}.`}
+          </T>
+        )}
+      </ConfirmDialog>
+
       <PaidWithSheet
         visible={paySheet}
         onClose={() => setPaySheet(false)}
@@ -391,8 +418,6 @@ const styles = StyleSheet.create({
   },
   chips: { flexDirection: 'row', gap: 8, marginTop: 12 },
   pen: { position: 'absolute', top: 5, right: 6 },
-  other: { marginTop: 10, borderWidth: 1, borderRadius: 16, padding: 12 },
-  otherHead: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
   keep: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, minHeight: 32 },
   box: { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   note: { marginTop: 12, minHeight: 50, borderWidth: 1.5, borderRadius: radius, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14 },

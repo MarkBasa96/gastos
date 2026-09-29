@@ -91,6 +91,7 @@ export function ConfirmDialog({
   danger,
   onCancel,
   onConfirm,
+  focusCancel = true,
 }: {
   visible: boolean;
   t: Theme;
@@ -101,6 +102,8 @@ export function ConfirmDialog({
   danger?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  /** A pop-up that asks for text puts focus in its own field instead of on Cancel. */
+  focusCancel?: boolean;
 }) {
   // One press only: a double tap on the action must not save twice (Kenshin L10). A ref, not state:
   // two taps can land before React re-renders (the v3 harness caught exactly that).
@@ -113,7 +116,7 @@ export function ConfirmDialog({
     setBusy(false);
     used.current = false;
     // Focus lands on Cancel, never on the destructive button (Kenshin L10).
-    if (Platform.OS === 'web') {
+    if (Platform.OS === 'web' && focusCancel) {
       const timer = setTimeout(() => (cancelRef.current as unknown as HTMLElement | null)?.focus?.({ preventScroll: true }), 30);
       return () => clearTimeout(timer);
     }

@@ -29,7 +29,7 @@ remembers your usual wallet, and Save sits right under your thumb.
 
 - **Color themes.** Eight to pick from in Settings: Gastos green, Baby pink, Lavender, Ocean blue, Mint teal, Sunset coral, Sunflower and Latte. Light and dark both follow it, and when you're signed in it follows your account onto every phone.
 - **FAQ in Settings.** Quick answers, searchable, that work offline: where entries are saved, how safe your data is, backups, the MPIN, and more.
-- **Name your own "Other".** Tap Other and say what it was ("Haircut"). It saves under that name and, if you like, stays as a tile for next time.
+- **Name your own "Other".** Tap Other and a pop-up asks what it was ("Haircut"). It saves under that name and, if you like, stays as a tile for next time.
 - **A note you can't miss.** The note is now a full-width box above Save, and the save pop-up shows it on its own line.
 - **Pop-ups blur the screen behind them.**
 - **The phone's Back button works again on Android.** 3.0's version was skipped by newer Chrome, so Back closed the app. 3.1 uses Chrome's built-in way to catch Back for pop-ups (CloseWatcher), with the old approach as a fallback.
