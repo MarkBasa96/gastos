@@ -33,4 +33,35 @@ assert.equal(isDataError({ code: '42501' }), true);
 assert.equal(isDataError({ code: '', message: 'Failed to fetch' }), false);
 assert.equal(isDataError(null), false);
 
+// Permanent: bad data, broken rules, someone else's row.
+for (const code of ['22P02', '22001', '23514', '23505', '23503', '23502', '42501']) {
+  assert.equal(isDataError({ code }), true, code + ' should be permanent');
+}
+// Temporary (Kenshin B2): a busy or changing database must never drop a row from the queue.
+for (const code of ['57014', '55P03', '40P01', '40001', '53300', '42703', '42P01', 'P0001', 'PGRST204', 'PGRST', 'XX000']) {
+  assert.equal(isDataError({ code }), false, code + ' should be temporary');
+}
+
+// A timeout while uploading keeps every row queued: nothing sent, nothing rejected, OfflineError thrown.
+const timeoutCalls = [];
+await assert.rejects(
+  pushWithFallback(rows(['a', 'b']), async (batch) => {
+    timeoutCalls.push(batch.length);
+    return { code: '57014', message: 'canceling statement due to statement timeout' };
+  }),
+  OfflineError,
+);
+assert.deepEqual(timeoutCalls, [2], 'no row-by-row fallback for a temporary error');
+
+// A lock wait in the middle of the row-by-row fallback also stops without rejecting anything.
+let n = 0;
+await assert.rejects(
+  pushWithFallback(rows(['a', 'bad', 'c']), async () => {
+    n++;
+    if (n === 1) return { code: '23514', message: 'check violation' };
+    return { code: '55P03', message: 'lock not available' };
+  }),
+  OfflineError,
+);
+
 console.log('syncCore: all tests passed');

@@ -2,9 +2,14 @@
 
 export type DbError = { code?: string; message?: string } | null;
 
-/** Postgres/PostgREST errors carry a 5-character SQLSTATE (e.g. 23514, 42501). Anything else is the network. */
+/**
+ * True only when the server will never accept this row as it is: bad data (22xxx), a broken rule
+ * (23xxx, e.g. 23514) or a row owned by another account (42501). Everything else (timeouts 57014, lock
+ * waits 55P03, deadlocks 40P01, a column mid-migration 42703, the network) is temporary: the row stays
+ * queued and retries later. Treating those as permanent silently dropped rows (Kenshin B2, 2026-09-29).
+ */
 export function isDataError(e: DbError): boolean {
-  return !!e && typeof e.code === 'string' && /^[0-9A-Z]{5}$/.test(e.code);
+  return !!e && typeof e.code === 'string' && (/^2[23][0-9A-Z]{3}$/.test(e.code) || e.code === '42501');
 }
 
 export class OfflineError extends Error {}
