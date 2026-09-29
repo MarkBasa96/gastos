@@ -31,6 +31,7 @@ remembers your usual wallet, and Save sits right under your thumb.
 - **FAQ in Settings.** Quick answers, searchable, that work offline: where entries are saved, how safe your data is, backups, the MPIN, and more.
 - **Name your own "Other".** Tap Other and a pop-up asks what it was ("Haircut"). It saves under that name and, if you like, stays as a tile for next time.
 - **A note you can't miss.** The note is now a full-width box above Save, and the save pop-up shows it on its own line.
+- **Tap an entry in History to see everything about it** (amount, date, wallet, note, when it was added), with an Edit button at the top.
 - **Pop-ups blur the screen behind them.**
 - **The phone's Back button works again on Android.** 3.0's version was skipped by newer Chrome, so Back closed the app. 3.1 uses Chrome's built-in way to catch Back for pop-ups (CloseWatcher), with the old approach as a fallback.
 
@@ -50,7 +51,7 @@ remembers your usual wallet, and Save sits right under your thumb.
 
 - **Log an expense or income in seconds.** Filipino-first categories: Food, Transport, Load, Bills, *Padala*, Shopping, Health, plus your own.
 - **Paid with:** cash, cards, e-wallets and digital banks (GCash, Maya, GoTyme, SeaBank…). Names only, never account numbers. Rename or remove them any time.
-- **History:** week, month, year or any dates you pick; spending and income charts; entries grouped by day; search. Entries take two taps to edit, so a stray tap never opens one.
+- **History:** week, month, year or any dates you pick; spending and income charts; entries grouped by day; search. Tap an entry to see all its details, with Edit at the top.
 - **Offline-first sync:** every save lands on the phone first, then syncs. A small status dot shows *Synced / Saving / Offline / N waiting*.
 - **MPIN lock:** asked when the app opens fresh or after 30 minutes away, not every time you switch apps.
 - **Currency conversion** at today's rate. The original amounts are always kept, so switching back is exact.

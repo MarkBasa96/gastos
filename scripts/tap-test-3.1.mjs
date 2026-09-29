@@ -208,6 +208,55 @@ const tab = (p, n) => p.getByRole('tab', { name: n }).click();
   ok(errors.length === 0, 'no console errors: ' + errors.join(' | '));
   await ctx.close();
 }
+// ---------- History: one tap shows the details, Edit at the top ----------
+{
+  const { p, ctx, errors } = await fresh();
+  await p.getByLabel('Amount').fill('185');
+  await p.getByRole('radio', { name: 'Food' }).click();
+  await p.getByRole('button', { name: 'Add a note' }).click();
+  await p.getByLabel('Note').fill('Jollibee lunch with the team');
+  await p.getByRole('button', { name: /^Save/ }).last().click();
+  await p.getByRole('button', { name: 'Save it' }).click();
+  await p.waitForTimeout(300);
+  await tab(p, 'History');
+  const row = p.getByRole('button', { name: /^Food, minus ₱185\.00\. Tap for details\./ });
+  await row.click();
+  const edit = p.getByRole('button', { name: 'Edit this expense' });
+  await edit.waitFor();
+  ok(await p.getByText('Jollibee lunch with the team').last().isVisible(), 'one tap: details pop-up with the note');
+  ok(await p.getByText('Paid with').isVisible() && await p.getByText('Added').isVisible(), 'details list wallet and time added');
+  ok(!(await p.getByText('Edit expense').isVisible()), 'tapping never opens editing by itself');
+  await p.waitForTimeout(400);
+  await p.screenshot({ path: `${SHOTS}/details.png` });
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(400);
+  ok(!(await edit.isVisible()) && (await p.getByRole('tab', { name: 'History' }).getAttribute('aria-selected')) === 'true', 'Back closes the details, stays on History');
+  await row.click();
+  await p.getByRole('button', { name: 'Close', exact: true }).last().click();
+  await p.waitForTimeout(400);
+  ok(!(await edit.isVisible()), 'Close closes the details');
+  await row.click();
+  await edit.click();
+  await p.getByText('Edit expense').waitFor();
+  ok(await p.getByText('Edit expense').isVisible(), 'Edit opens the edit sheet');
+  await p.waitForTimeout(500); // the details pop-up fades out
+  ok(!(await edit.isVisible()), 'details pop-up gone behind the edit sheet');
+  await p.keyboard.press('Escape');
+  await p.waitForTimeout(400);
+  ok(!(await p.getByText('Edit expense').isVisible()), 'Back closes the edit sheet');
+  ok((await store(p)).e.length === 1 && (await store(p)).e[0].cents === 18500, 'looking and backing out changed nothing');
+  // dark
+  await tab(p, 'Settings');
+  await p.getByRole('radio', { name: 'Dark' }).click();
+  await p.waitForTimeout(900);
+  await tab(p, 'History');
+  await row.click();
+  await edit.waitFor();
+  await p.waitForTimeout(400);
+  await p.screenshot({ path: `${SHOTS}/details-dark.png` });
+  ok(errors.length === 0, 'no console errors: ' + errors.join(' | '));
+  await ctx.close();
+}
 await b.close();
 console.log(fails ? `\n${fails} FAILED` : '\nALL PASSED');
 process.exit(fails ? 1 : 0);

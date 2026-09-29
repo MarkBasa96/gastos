@@ -133,7 +133,7 @@ const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'How do I edit or delete an entry?',
-    a: 'In History, tap the entry once, then tap Edit. From there you can change it or delete it. The two taps mean a stray tap never opens one.',
+    a: 'In History, tap the entry to see all its details, then tap Edit at the top. From there you can change it or delete it. Just looking never changes anything.',
   },
   {
     q: 'How do I add my own category?',
