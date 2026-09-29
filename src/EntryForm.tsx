@@ -290,7 +290,9 @@ export const EntryForm = forwardRef<
           style={(st: any) => [
             styles.note,
             { marginTop: 12 + spread },
-            { borderColor: t.accent, backgroundColor: t.accentSoft, transform: [{ scale: st.pressed ? 0.98 : 1 }] },
+            // Softer since 3.2 (Joe: too bright): half-strength border and tint; the icon keeps full colour so
+            // it's still noticed. Theme colours are all #RRGGBB, so an alpha pair can be appended.
+            { borderColor: t.accent + '80', backgroundColor: t.accentSoft + '80', transform: [{ scale: st.pressed ? 0.98 : 1 }] },
             Platform.OS === 'web' && st.focused ? ({ outlineStyle: 'solid', outlineWidth: 2, outlineColor: t.accent, outlineOffset: 2 } as any) : null,
           ]}
         >
@@ -303,7 +305,7 @@ export const EntryForm = forwardRef<
           ) : (
             <>
               <T size={15} w="medium" color={t.muted} numberOfLines={1} style={{ flex: 1 }}>Add a note, like “Jollibee lunch”</T>
-              <T size={12} w="semibold" color={t.accent}>Optional</T>
+              <T size={12} w="semibold" color={t.muted}>Optional</T>
             </>
           )}
         </Pressable>
